@@ -2,14 +2,7 @@
 
 *AutoEbook hỗ trợ tự động xử lý danh sách sách trên [Thư viện Sách](https://thcscaukieu.thuvienhcm.edu.vn/). Chọn sách cần đọc, theo dõi tiến độ và xem báo cáo ngay trên trang thư viện.*
 
-**Phiên bản:** `2026.1.5` · **Trình quản lý:** [Tampermonkey](https://www.tampermonkey.net/)
-
-<details>
-<summary>▶ Cách AutoEbook hoạt động</summary>
-
-AutoEbook quét danh sách tài liệu, rồi xử lý từng sách theo thứ tự. Script chờ trình đọc tải, theo dõi trạng thái và tiến độ mà trang thư viện cung cấp, sau đó tổng hợp kết quả. Sách cần quyền truy cập phù hợp hoặc gặp lỗi sẽ được ghi nhận để người dùng xem lại.
-
-</details>
+**Phiên bản:** `2026.1.5`
 
 ---
 
@@ -62,33 +55,6 @@ AutoEbook quét danh sách tài liệu, rồi xử lý từng sách theo thứ t
 - Danh sách đã quét, tiến độ, lịch sử đọc và tùy chọn được lưu trong `localStorage` của trình duyệt trên trang thư viện.
 - Dữ liệu cục bộ không tự đồng bộ giữa các trình duyệt. Xóa dữ liệu trang có thể xóa trạng thái AutoEbook.
 - Mã được tải và chạy trong trình duyệt của người dùng. Chỉ cài userscript từ repository chính thức.
-
----
-
-## 🔄 Cập nhật và phát hành
-
-- File cài production là [`AutoEbook-installer.user.js`](AutoEbook-installer.user.js); file này chứa metadata Tampermonkey và mã chạy.
-- Tampermonkey kiểm tra và tải cập nhật từ `@updateURL` / `@downloadURL` trỏ tới file production trên nhánh `main`.
-- Khi phát hành bản mới, tăng `@version`, tạo lại artifact production từ mã nguồn hiện hành và cập nhật file trên GitHub.
-- Giữ `@updateURL` và `@downloadURL` trỏ đến URL raw. Không dùng URL dạng `github.com/.../blob/...` để cài đặt.
-
-### Các file trong repository
-
-| File | Vai trò |
-| --- | --- |
-| `AutoEbook-installer.user.js` | Bản production để cài và cập nhật bằng Tampermonkey |
-| `script.js` | Mã nguồn phát triển |
-| `script_v2.js` | Artifact riêng, không nằm trong luồng cài production hiện tại; metadata hiện ghi phiên bản `2026.1.2` |
-| `logo.png` | Biểu tượng userscript |
-
----
-
-## 🛠 Khắc phục sự cố
-
-- **Không thấy bảng điều khiển:** kiểm tra Tampermonkey và AutoEbook đang bật, địa chỉ đang mở thuộc đúng tên miền, rồi tải lại trang.
-- **Không quét hoặc đọc được sách:** đăng nhập lại, mở trang danh sách tài liệu và quét lại. Website tải chậm hoặc thay đổi giao diện có thể ảnh hưởng quá trình.
-- **Một số sách bị bỏ qua:** xem lý do trong báo cáo; sách đã hoàn tất, cần quyền khác hoặc không truy cập được có thể không xử lý bằng tài khoản hiện tại.
-- **Không thấy bản cập nhật:** mở bảng điều khiển Tampermonkey và chạy kiểm tra cập nhật cho AutoEbook.
 
 ## Tác giả
 
