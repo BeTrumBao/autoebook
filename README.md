@@ -1,35 +1,95 @@
-# AutoEbook
+# 🌐 AutoEbook
 
-Userscript hỗ trợ tự động xử lý danh sách sách trên [Thư viện Sách](https://thcscaukieu.thuvienhcm.edu.vn/). Script thêm một bảng điều khiển vào trang để quét sách, chọn danh sách cần xử lý, theo dõi tiến độ và xem báo cáo.
+*AutoEbook hỗ trợ tự động xử lý danh sách sách trên [Thư viện Sách](https://thcscaukieu.thuvienhcm.edu.vn/). Chọn sách cần đọc, theo dõi tiến độ và xem báo cáo ngay trên trang thư viện.*
 
-## Tính năng
+**Phiên bản:** `2026.1.5` · **Trình quản lý:** [Tampermonkey](https://www.tampermonkey.net/)
 
-- Quét danh sách sách trên trang thư viện và lưu danh sách đã quét vào bộ nhớ trình duyệt để dùng lại.
-- Có ba chế độ: xử lý sách chưa hoàn tất, xử lý theo số lượng, hoặc tự chọn sách từ danh sách.
-- Trong danh sách chọn sách có nút **Chọn tất cả** và **Bỏ chọn tất cả**; số lượng `0` nghĩa là không giới hạn.
-- Xử lý tuần tự từng cuốn, mở trình đọc sách/PDF và chờ trang đọc sẵn sàng.
-- Kiểm tra tiến độ và trạng thái hoàn tất theo thông tin hiển thị trên trang; bỏ qua sách đã hoàn tất.
-- Tự bấm tim khi cần để đáp ứng điều kiện hoàn tất mà trang thư viện hiển thị.
-- Hiển thị tiến độ, thời gian ước tính, lý do sách bị bỏ qua và báo cáo kết quả sau khi quét.
-- Có thể dừng quá trình đang chạy.
+<details>
+<summary>▶ Cách AutoEbook hoạt động</summary>
 
-## Cách hoạt động
+AutoEbook quét danh sách tài liệu, rồi xử lý từng sách theo thứ tự. Script chờ trình đọc tải, theo dõi trạng thái và tiến độ mà trang thư viện cung cấp, sau đó tổng hợp kết quả. Sách cần quyền truy cập phù hợp hoặc gặp lỗi sẽ được ghi nhận để người dùng xem lại.
 
-1. Khi mở trang thuộc `thcscaukieu.thuvienhcm.edu.vn`, script kiểm tra trạng thái đã lưu và thêm giao diện AutoEbook vào trang.
-2. Khi bắt đầu, script lấy các liên kết sách từ danh sách thư viện. Danh sách, vị trí đang xử lý, lịch sử và một số tùy chọn được lưu bằng `localStorage` của trình duyệt.
-3. Script lần lượt mở trang từng cuốn, chờ bộ đọc PDF tải và kiểm tra tiến độ/trạng thái tim theo giao diện của website.
-4. Sách đã hoàn tất sẽ được bỏ qua. Sách cần đăng nhập, cần quyền giáo viên hoặc gặp lỗi truy cập được ghi nhận để hiển thị trong báo cáo; script không vượt qua các yêu cầu đăng nhập hay quyền truy cập.
-5. Khi kết thúc, AutoEbook hiển thị tổng kết và danh sách kết quả.
+</details>
 
-## Cài đặt
+---
 
-1. Cài tiện ích Tampermonkey trên trình duyệt.
-2. [Bấm vào đây để cài AutoEbook bằng Tampermonkey](https://raw.githubusercontent.com/BeTrumBao/autoebook/refs/heads/main/AutoEbook-installer.user.js). Repo cần có cả `AutoEbook-installer.user.js` và `script_v2.js` ở nhánh `main`.
-3. Chọn **Install** trong trang cài đặt của Tampermonkey.
-4. Đăng nhập vào trang thư viện rồi mở danh sách sách để sử dụng bảng điều khiển.
+## ⚙️ Cách cài đặt
 
-## Lưu ý
+1. Cài và bật trình quản lý userscript [Tampermonkey](https://www.tampermonkey.net/).
+   - [Trang hướng dẫn Tampermonkey](https://www.tampermonkey.net/faq.php)
+2. Nhấn nút bên dưới để cài hoặc cập nhật AutoEbook:
 
-- Script chỉ chạy trên `thcscaukieu.thuvienhcm.edu.vn`.
-- Cache, lịch sử và tiến độ của AutoEbook được lưu trong bộ nhớ trang của trình duyệt. Xóa dữ liệu trang có thể xóa các thông tin này.
-- Giao diện website thay đổi có thể làm một số chức năng cần được cập nhật.
+<p>
+  <a href="https://raw.githubusercontent.com/BeTrumBao/autoebook/refs/heads/main/AutoEbook-installer.user.js"><img alt="INSTALL / UPDATE" src="https://img.shields.io/badge/INSTALL%20%2F%20UPDATE-444444?style=for-the-badge"></a>
+  <a href="https://raw.githubusercontent.com/BeTrumBao/autoebook/refs/heads/main/AutoEbook-installer.user.js"><img alt="AUTOEBOOK" src="https://img.shields.io/badge/AUTOEBOOK-1677E8?style=for-the-badge"></a>
+</p>
+
+<details>
+<summary>Hoặc mở liên kết cài đặt</summary>
+
+[Cài AutoEbook bằng Tampermonkey](https://raw.githubusercontent.com/BeTrumBao/autoebook/refs/heads/main/AutoEbook-installer.user.js)
+
+</details>
+
+3. Trong tab Tampermonkey vừa mở, nhấn **Install**; nếu đang cập nhật, chọn **Update** hoặc **Overwrite**.
+4. Đăng nhập Thư viện Sách, mở trang danh sách tài liệu và tải lại trang. Bảng điều khiển AutoEbook sẽ xuất hiện trên trang.
+
+---
+
+## 📖 Tính năng
+
+### Tính năng cơ bản
+
+- Quét danh sách sách và lưu bộ nhớ đệm để dùng lại.
+- Chọn một trong ba chế độ: đọc sách chưa hoàn tất, đọc theo số lượng hoặc chọn thủ công.
+- Trong hộp chọn sách, dùng **Chọn tất cả** hoặc **Bỏ chọn tất cả**; số lượng `0` nghĩa là không giới hạn.
+- Xử lý tuần tự, chờ trình đọc sách/PDF tải và theo dõi trạng thái hoàn tất.
+- Bỏ qua sách đã hoàn tất. Ở chế độ số lượng, thử thay sách không xử lý được bằng sách dự phòng phù hợp nếu còn.
+- Hiển thị tiến độ, thời gian ước tính, lý do bỏ qua và báo cáo cuối quá trình.
+- Cho phép dừng quá trình đang chạy.
+
+### Lưu ý khi sử dụng
+
+- AutoEbook sử dụng phiên đăng nhập hiện có trên trang thư viện; bảng điều khiển không yêu cầu nhập mật khẩu.
+- Một số sách yêu cầu quyền giáo viên hoặc quyền truy cập khác. AutoEbook không cấp quyền và không vượt qua giới hạn của tài khoản.
+- Kết quả cuối cùng dựa trên trạng thái hiển thị trên trang thư viện; hãy kiểm tra báo cáo sau khi chạy.
+
+---
+
+## 💾 Dữ liệu và quyền riêng tư
+
+- Script chỉ chạy trên `thcscaukieu.thuvienhcm.edu.vn` theo metadata `@match`.
+- Danh sách đã quét, tiến độ, lịch sử đọc và tùy chọn được lưu trong `localStorage` của trình duyệt trên trang thư viện.
+- Dữ liệu cục bộ không tự đồng bộ giữa các trình duyệt. Xóa dữ liệu trang có thể xóa trạng thái AutoEbook.
+- Mã được tải và chạy trong trình duyệt của người dùng. Chỉ cài userscript từ repository chính thức.
+
+---
+
+## 🔄 Cập nhật và phát hành
+
+- File cài production là [`AutoEbook-installer.user.js`](AutoEbook-installer.user.js); file này chứa metadata Tampermonkey và mã chạy.
+- Tampermonkey kiểm tra và tải cập nhật từ `@updateURL` / `@downloadURL` trỏ tới file production trên nhánh `main`.
+- Khi phát hành bản mới, tăng `@version`, tạo lại artifact production từ mã nguồn hiện hành và cập nhật file trên GitHub.
+- Giữ `@updateURL` và `@downloadURL` trỏ đến URL raw. Không dùng URL dạng `github.com/.../blob/...` để cài đặt.
+
+### Các file trong repository
+
+| File | Vai trò |
+| --- | --- |
+| `AutoEbook-installer.user.js` | Bản production để cài và cập nhật bằng Tampermonkey |
+| `script.js` | Mã nguồn phát triển |
+| `script_v2.js` | Artifact riêng, không nằm trong luồng cài production hiện tại; metadata hiện ghi phiên bản `2026.1.2` |
+| `logo.png` | Biểu tượng userscript |
+
+---
+
+## 🛠 Khắc phục sự cố
+
+- **Không thấy bảng điều khiển:** kiểm tra Tampermonkey và AutoEbook đang bật, địa chỉ đang mở thuộc đúng tên miền, rồi tải lại trang.
+- **Không quét hoặc đọc được sách:** đăng nhập lại, mở trang danh sách tài liệu và quét lại. Website tải chậm hoặc thay đổi giao diện có thể ảnh hưởng quá trình.
+- **Một số sách bị bỏ qua:** xem lý do trong báo cáo; sách đã hoàn tất, cần quyền khác hoặc không truy cập được có thể không xử lý bằng tài khoản hiện tại.
+- **Không thấy bản cập nhật:** mở bảng điều khiển Tampermonkey và chạy kiểm tra cập nhật cho AutoEbook.
+
+## Tác giả
+
+**Made by Em Wizi With Love <3**
