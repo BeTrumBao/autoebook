@@ -8,6 +8,7 @@
 // @updateURL    https://raw.githubusercontent.com/BeTrumBao/autoebook/refs/heads/main/AutoEbook-installer.user.js
 // @downloadURL  https://raw.githubusercontent.com/BeTrumBao/autoebook/refs/heads/main/AutoEbook-installer.user.js
 // @match        *://thcscaukieu.thuvienhcm.edu.vn/*
+// @match        https://*.officeapps.live.com/*
 // @grant        none
 // ==/UserScript==
 
