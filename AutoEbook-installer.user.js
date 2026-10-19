@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         AutoEbook
 // @namespace    http://tampermonkey.net/
-// @version      26.1.6
+// @version      2026.1.6
 // @description  AutoEbook Made By Em Wizi With Love <3
 // @author       Em Wizi
 // @icon         https://raw.githubusercontent.com/BeTrumBao/autoebook/refs/heads/main/logo.png
 // @updateURL    https://raw.githubusercontent.com/BeTrumBao/autoebook/refs/heads/main/AutoEbook-installer.user.js
 // @downloadURL  https://raw.githubusercontent.com/BeTrumBao/autoebook/refs/heads/main/AutoEbook-installer.user.js
 // @match        *://thcscaukieu.thuvienhcm.edu.vn/*
+// @match        https://*.officeapps.live.com/*
 // @grant        none
 // ==/UserScript==
 
