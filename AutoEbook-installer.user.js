@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AutoEbook
 // @namespace    http://tampermonkey.net/
-// @version      2026.1.6
+// @version      2026.1.6 
 // @description  AutoEbook Made By Em Wizi With Love <3
 // @author       Em Wizi
 // @icon         https://raw.githubusercontent.com/BeTrumBao/autoebook/refs/heads/main/logo.png
