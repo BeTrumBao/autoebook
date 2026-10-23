@@ -67,7 +67,6 @@
             wordReaderReadyFrame = frame;
         }
         wordReaderReadyAt = Date.now();
-        console.log(`${APP_TAG} Tài liệu Word đã tải xong; nhận diện qua SharedAuthFrame.`);
         event.source.postMessage({ type: 'AUTOEBOOKS_WORD_DOCUMENT_READY_ACK' }, '*');
     });
 
@@ -84,7 +83,6 @@
             if (cachedCode && cachedCode.length > 5000) {
                 const blob = new Blob([cachedCode], { type: 'application/javascript' });
                 cachedWorkerBlobUrl = URL.createObjectURL(blob);
-                console.log(`${APP_TAG} Đã nạp nhân PDF Worker từ bộ nhớ cục bộ (RAM).`);
             }
         } catch (e) { }
 
@@ -123,7 +121,6 @@
                         const blob = new Blob([code], { type: 'application/javascript' });
                         cachedWorkerBlobUrl = URL.createObjectURL(blob);
                         try { localStorage.setItem(WORKER_CACHE_KEY, code); } catch (e) { }
-                        console.log(`${APP_TAG} Đã khôi phục nhân PDF Worker từ IndexedDB.`);
                     }
                 };
             } catch (e) { }
@@ -152,7 +149,6 @@
                             const blob = new Blob([code], { type: 'application/javascript' });
                             cachedWorkerBlobUrl = URL.createObjectURL(blob);
                         }
-                        console.log(`${APP_TAG} Đã lưu nhân PDF Worker vào Local Storage / IndexedDB thành công!`);
                     }
                 })
                 .catch(e => console.warn(`${APP_TAG} Không thể tải cache PDF Worker:`, e))
@@ -166,7 +162,6 @@
                 const urlStr = typeof scriptURL === 'string' ? scriptURL : (scriptURL?.toString ? scriptURL.toString() : '');
                 if (isPdfWorkerUrl(urlStr)) {
                     if (cachedWorkerBlobUrl) {
-                        console.log(`${APP_TAG} Khởi chạy nhân PDF Worker từ bộ nhớ cục bộ siêu tốc (0ms).`);
                         return new OrigWorker(cachedWorkerBlobUrl, options);
                     } else {
                         cacheWorkerFromUrl(urlStr);
@@ -348,25 +343,25 @@
                 const list = Array.isArray(data) ? data : (Array.isArray(data?.books) ? data.books : null);
                 if (!list || list.length === 0) continue;
 
-            const history = JSON.parse(localStorage.getItem(KEY_READ_HISTORY) || '[]');
-            const formatted = list.map(b => ({
-                uid: b.uid || generateBookUID(b.url, b.title),
-                title: b.title || 'Không tên',
-                url: b.url,
-                isRead: Boolean(b.isRead) || history.includes(b.url)
-            })).filter(b => b.url);
+                const history = JSON.parse(localStorage.getItem(KEY_READ_HISTORY) || '[]');
+                const formatted = list.map(b => ({
+                    uid: b.uid || generateBookUID(b.url, b.title),
+                    title: b.title || 'Không tên',
+                    url: b.url,
+                    isRead: Boolean(b.isRead) || history.includes(b.url)
+                })).filter(b => b.url);
 
-            if (formatted.length > 0) {
-                setCachedBooks(formatted, true);
-                if (typeof updateStatus === 'function') updateStatus(' Đã nạp ' + formatted.length + ' sách từ Gói tài nguyên!', 'success');
-                return formatted;
+                if (formatted.length > 0) {
+                    setCachedBooks(formatted, true);
+                    if (typeof updateStatus === 'function') updateStatus(' Đã nạp ' + formatted.length + ' sách từ Gói tài nguyên!', 'success');
+                    return formatted;
+                }
+            } catch (e) {
+                console.warn('[AutoEbooks] Chưa nạp được gói tài nguyên sách:', e);
             }
-        } catch (e) {
-            console.warn('[AutoEbooks] Chưa nạp được gói tài nguyên sách:', e);
         }
-    }
-    return null;
-};
+        return null;
+    };
 
     const getOrFetchBooks = async (updateStatus, onCancel) => {
         // 1. Ưu tiên cao nhất: Tải trực tiếp gói tài nguyên từ raw GitHub của cậu (bỏ qua cào 30 phút)
@@ -395,17 +390,17 @@
                 const style = document.createElement('style');
                 style.id = id;
                 style.textContent = `
-                    *, *::before, *::after {
-                        animation-duration: 0s !important;
-                        animation-delay: 0s !important;
-                        transition-duration: 0s !important;
-                        transition-delay: 0s !important;
-                    }
-                    .tr-panel, .tr-panel *, .tr-toast, #tr-scrape-overlay, #tr-scrape-overlay * {
-                        animation-duration: 0s !important;
-                        transition-duration: 0s !important;
-                    }
-                `;
+                        *, *::before, *::after {
+                            animation-duration: 0s !important;
+                            animation-delay: 0s !important;
+                            transition-duration: 0s !important;
+                            transition-delay: 0s !important;
+                        }
+                        .tr-panel, .tr-panel *, .tr-toast, #tr-scrape-overlay, #tr-scrape-overlay * {
+                            animation-duration: 0s !important;
+                            transition-duration: 0s !important;
+                        }
+                    `;
                 document.head.appendChild(style);
             }
         } else {
@@ -609,7 +604,7 @@
     const findReadButton = () => {
         const btns = Array.from(document.querySelectorAll('button'));
         for (const b of btns) {
-            if (b.closest('#tr-panel')) continue;
+            if (b.closest('#tr-panel') || b.closest('#tr-view-scrape-overlay')) continue;
             const tx = b.innerText.toLowerCase();
             if (tx.includes('đọc sách') || tx.includes('đọc trực tuyến') || tx.includes('xem tài liệu')) return b;
         }
@@ -827,7 +822,7 @@
         const countElements = [];
 
         for (const element of candidates) {
-            if (element.closest('#tr-panel')) continue;
+            if (element.closest('#tr-panel') || element.closest('#tr-view-scrape-overlay') || element.closest('[class*="tr-"]')) continue;
             if (seenElements.has(element)) continue;
 
             const style = window.getComputedStyle(element);
@@ -873,7 +868,7 @@
         let titleElement = null;
         let bestTitleScore = 0;
         for (const element of titleElements) {
-            if (element.closest('#tr-panel')) continue;
+            if (element.closest('#tr-panel') || element.closest('#tr-view-scrape-overlay') || element.closest('[class*="tr-"]')) continue;
             const text = normalizeBookText(element.innerText || element.textContent);
             if (!text) continue;
             let score = 0;
@@ -1293,41 +1288,41 @@
         const renderRows = (list) => list.map(r => `<tr><td><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a></td><td class="pct">${r.progress !== null ? r.progress + '%' : '--'}</td><td class="reason">${esc(r.reason || '')}</td></tr>`).join('');
         const section = (title, list) => list.length === 0 ? '' : `<div class="section"><div class="section-title">${title} <span class="count">${list.length}</span></div><table><thead><tr><th>Tên sách</th><th>%</th><th>Lý do</th></tr></thead><tbody>${renderRows(list)}</tbody></table></div>`;
         return `<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Báo cáo — Auto Đọc Sách</title>
-    <style>*{box-sizing:border-box}body{margin:0;padding:28px;background:#0F172A;color:#E2E8F0;font-family:'Roboto',-apple-system,'Segoe UI',sans-serif}
-    h1{font-size:22px;margin:0 0 6px;color:#fff}.sub{color:#94A3B8;font-size:13px;margin-bottom:24px}
-    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}
-    .stat{background:#1E293B;border:1px solid #334155;border-radius:14px;padding:14px 16px}
-    .stat .num{font-size:26px;font-weight:800;line-height:1;margin-bottom:4px}
-    .stat .lbl{font-size:11.5px;font-weight:600;letter-spacing:.4px;color:#94A3B8;text-transform:uppercase}
-    .stat.done .num{color:#22C55E}.stat.partial .num{color:#F59E0B}.stat.not .num{color:#EF4444}.stat.login .num{color:#A855F7}.stat.total .num{color:#38BDF8}
-    table{width:100%;border-collapse:collapse;background:#1E293B;border:1px solid #334155;border-radius:14px;overflow:hidden;margin-bottom:6px}
-    th,td{padding:10px 14px;text-align:left;border-bottom:1px solid #334155;font-size:13px}
-    th{background:#0F172A;font-weight:700;color:#94A3B8;text-transform:uppercase;font-size:11px;letter-spacing:.4px}
-    tr:last-child td{border-bottom:none}tr:hover td{background:#293548}
-    td a{color:#38BDF8;text-decoration:none}td a:hover{text-decoration:underline}
-    td.pct{width:80px;font-variant-numeric:tabular-nums;font-weight:700}td.reason{width:180px;color:#94A3B8;font-size:11.5px}
-    .section{margin-bottom:24px}.section-title{font-size:14px;font-weight:700;margin-bottom:10px;color:#E2E8F0;display:flex;align-items:center;gap:8px}
-    .section-title .count{background:#334155;padding:2px 10px;border-radius:100px;font-size:11.5px;color:#CBD5E1}
-    .btn{padding:9px 18px;border-radius:100px;background:#334155;color:#E2E8F0;border:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;margin-right:8px}.btn:hover{background:#475569}
-    .note{padding:10px 14px;border-radius:10px;background:#1E293B;border:1px solid #334155;color:#94A3B8;font-size:12px;margin-bottom:20px}
-    </style></head><body>
-    <h1> Báo cáo kiểm tra đã đọc</h1>
-    <div class="sub">${results.length} sách đã kiểm tra · Auto Đọc Sách V51</div>
-    <div class="note"> <b>Quy chuẩn 2 điều kiện:</b> Phải thỏa mãn đồng thời <b>Slider 100%</b> VÀ <b>Đã Thả Tim</b> mới tính là "Đã đọc".</div>
-    <div class="stats">
-    <div class="stat total"><div class="num">${results.length}</div><div class="lbl">Tổng</div></div>
-    <div class="stat done"><div class="num">${done.length}</div><div class="lbl"> Đã Đọc &amp; Tim</div></div>
-    <div class="stat partial"><div class="num">${partial.length}</div><div class="lbl"> Chưa Đủ 2 ĐK</div></div>
-    <div class="stat not"><div class="num">${notStarted.length}</div><div class="lbl"> Chưa đọc</div></div>
-    <div class="stat login"><div class="num">${loginReq.length}</div><div class="lbl"> Cần ĐN</div></div>
-    </div>
-    <button class="btn" onclick="window.location.reload()"> Tải lại</button>
-    ${section(' Đã Đọc 100% & Thả Tim', done)}
-    ${section(' Chưa Đủ 2 ĐK (sẽ đọc/tim lại)', partial)}
-    ${section(' Chưa đọc', notStarted)}
-    ${section(' Cần đăng nhập', loginReq)}
-    ${section(' Lỗi / File không truy cập được', errorList)}
-    </body></html>`;
+        <style>*{box-sizing:border-box}body{margin:0;padding:28px;background:#0F172A;color:#E2E8F0;font-family:'Roboto',-apple-system,'Segoe UI',sans-serif}
+        h1{font-size:22px;margin:0 0 6px;color:#fff}.sub{color:#94A3B8;font-size:13px;margin-bottom:24px}
+        .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}
+        .stat{background:#1E293B;border:1px solid #334155;border-radius:14px;padding:14px 16px}
+        .stat .num{font-size:26px;font-weight:800;line-height:1;margin-bottom:4px}
+        .stat .lbl{font-size:11.5px;font-weight:600;letter-spacing:.4px;color:#94A3B8;text-transform:uppercase}
+        .stat.done .num{color:#22C55E}.stat.partial .num{color:#F59E0B}.stat.not .num{color:#EF4444}.stat.login .num{color:#A855F7}.stat.total .num{color:#38BDF8}
+        table{width:100%;border-collapse:collapse;background:#1E293B;border:1px solid #334155;border-radius:14px;overflow:hidden;margin-bottom:6px}
+        th,td{padding:10px 14px;text-align:left;border-bottom:1px solid #334155;font-size:13px}
+        th{background:#0F172A;font-weight:700;color:#94A3B8;text-transform:uppercase;font-size:11px;letter-spacing:.4px}
+        tr:last-child td{border-bottom:none}tr:hover td{background:#293548}
+        td a{color:#38BDF8;text-decoration:none}td a:hover{text-decoration:underline}
+        td.pct{width:80px;font-variant-numeric:tabular-nums;font-weight:700}td.reason{width:180px;color:#94A3B8;font-size:11.5px}
+        .section{margin-bottom:24px}.section-title{font-size:14px;font-weight:700;margin-bottom:10px;color:#E2E8F0;display:flex;align-items:center;gap:8px}
+        .section-title .count{background:#334155;padding:2px 10px;border-radius:100px;font-size:11.5px;color:#CBD5E1}
+        .btn{padding:9px 18px;border-radius:100px;background:#334155;color:#E2E8F0;border:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;margin-right:8px}.btn:hover{background:#475569}
+        .note{padding:10px 14px;border-radius:10px;background:#1E293B;border:1px solid #334155;color:#94A3B8;font-size:12px;margin-bottom:20px}
+        </style></head><body>
+        <h1> Báo cáo kiểm tra đã đọc</h1>
+        <div class="sub">${results.length} sách đã kiểm tra · Auto Đọc Sách V51</div>
+        <div class="note"> <b>Quy chuẩn 2 điều kiện:</b> Phải thỏa mãn đồng thời <b>Slider 100%</b> VÀ <b>Đã Thả Tim</b> mới tính là "Đã đọc".</div>
+        <div class="stats">
+        <div class="stat total"><div class="num">${results.length}</div><div class="lbl">Tổng</div></div>
+        <div class="stat done"><div class="num">${done.length}</div><div class="lbl"> Đã Đọc &amp; Tim</div></div>
+        <div class="stat partial"><div class="num">${partial.length}</div><div class="lbl"> Chưa Đủ 2 ĐK</div></div>
+        <div class="stat not"><div class="num">${notStarted.length}</div><div class="lbl"> Chưa đọc</div></div>
+        <div class="stat login"><div class="num">${loginReq.length}</div><div class="lbl"> Cần ĐN</div></div>
+        </div>
+        <button class="btn" onclick="window.location.reload()"> Tải lại</button>
+        ${section(' Đã Đọc 100% & Thả Tim', done)}
+        ${section(' Chưa Đủ 2 ĐK (sẽ đọc/tim lại)', partial)}
+        ${section(' Chưa đọc', notStarted)}
+        ${section(' Cần đăng nhập', loginReq)}
+        ${section(' Lỗi / File không truy cập được', errorList)}
+        </body></html>`;
     };
 
     const showScanReport = (results) => {
@@ -1734,31 +1729,31 @@
         box.className = 'tr-picker-box';
 
         box.innerHTML = `
-                <div class="tr-picker-header">
-                    <div>
-                        <div class="tr-picker-title">${customTitle || ' Chọn sách cần đọc'}</div>
-                        <div class="tr-picker-sub">${rawBooks.length} sách · ${history.length} sách đã hoàn tất (100% & tim)</div>
+                    <div class="tr-picker-header">
+                        <div>
+                            <div class="tr-picker-title">${customTitle || ' Chọn sách cần đọc'}</div>
+                            <div class="tr-picker-sub">${rawBooks.length} sách · ${history.length} sách đã hoàn tất (100% & tim)</div>
+                        </div>
                     </div>
-                </div>
-                <div class="tr-picker-controls">
-                    <div class="tr-picker-ctrl">
-                        <label>Số sách cần đọc:</label>
-                        <input type="number" id="tr-picker-limit" min="0" max="${rawBooks.length}" value="${currentLimit}" placeholder="0 = tất cả">
-                        <span class="tr-picker-hint">0 = không giới hạn</span>
+                    <div class="tr-picker-controls">
+                        <div class="tr-picker-ctrl">
+                            <label>Số sách cần đọc:</label>
+                            <input type="number" id="tr-picker-limit" min="0" max="${rawBooks.length}" value="${currentLimit}" placeholder="0 = tất cả">
+                            <span class="tr-picker-hint">0 = không giới hạn</span>
+                        </div>
+                        <div class="tr-picker-actions">
+                            <button type="button" class="tr-picker-mini" id="tr-pick-select-all">Chọn tất cả</button>
+                            <button type="button" class="tr-picker-mini" id="tr-pick-clear-all">Bỏ chọn tất cả</button>
+                        </div>
                     </div>
-                    <div class="tr-picker-actions">
-                        <button type="button" class="tr-picker-mini" id="tr-pick-select-all">Chọn tất cả</button>
-                        <button type="button" class="tr-picker-mini" id="tr-pick-clear-all">Bỏ chọn tất cả</button>
-                    </div>
-                </div>
-                <div class="tr-picker-list" id="tr-pick-list"></div>
-                <div class="tr-picker-footer">
-                    <div class="tr-picker-count" id="tr-pick-count">0 đã chọn</div>
-                    <div>
-                        <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-pick-cancel">Huỷ</button>
-                        <button class="tr-btn tr-btn-primary tr-btn-sm" id="tr-pick-ok">Bắt đầu đọc</button>
-                    </div>
-                </div>`;
+                    <div class="tr-picker-list" id="tr-pick-list"></div>
+                    <div class="tr-picker-footer">
+                        <div class="tr-picker-count" id="tr-pick-count">0 đã chọn</div>
+                        <div>
+                            <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-pick-cancel">Huỷ</button>
+                            <button class="tr-btn tr-btn-primary tr-btn-sm" id="tr-pick-ok">Bắt đầu đọc</button>
+                        </div>
+                    </div>`;
 
         const list = box.querySelector('#tr-pick-list');
         const filteredBooks = rawBooks.map((b, i) => ({ ...b, idx: i, read: history.includes(b.url) }));
@@ -1766,10 +1761,10 @@
             const item = document.createElement('label');
             item.className = 'tr-picker-item' + (b.read ? ' tr-read' : '');
             item.innerHTML = `<input type="checkbox" data-idx="${i}" ${b.read ? '' : 'checked'}>
-                    <div class="tr-picker-item-info">
-                        <div class="tr-picker-item-title">${b.title.length > 70 ? b.title.slice(0, 70) + '...' : b.title}</div>
-                        <div class="tr-picker-item-meta">${b.read ? ' Đã đọc 100% & Tim' : ' Chưa hoàn tất'}</div>
-                    </div>`;
+                        <div class="tr-picker-item-info">
+                            <div class="tr-picker-item-title">${b.title.length > 70 ? b.title.slice(0, 70) + '...' : b.title}</div>
+                            <div class="tr-picker-item-meta">${b.read ? ' Đã đọc 100% & Tim' : ' Chưa hoàn tất'}</div>
+                        </div>`;
             list.appendChild(item);
         });
 
@@ -1814,15 +1809,15 @@
         const box = document.createElement('div');
         box.className = 'tr-confirm-box';
         box.innerHTML = `
-                <div class="tr-confirm-header">
-                    <div class="tr-confirm-icon"><svg viewBox="0 0 24 24" width="30" height="30" fill="#F59E0B"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></div>
-                    <div class="tr-confirm-title">${title}</div>
-                </div>
-                <div class="tr-confirm-body">${message}</div>
-                <div class="tr-confirm-footer">
-                    <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-confirm-cancel">${cancelText}</button>
-                    <button class="tr-btn tr-btn-primary tr-btn-sm" id="tr-confirm-ok">${okText}</button>
-                </div>`;
+                    <div class="tr-confirm-header">
+                        <div class="tr-confirm-icon"><svg viewBox="0 0 24 24" width="30" height="30" fill="#F59E0B"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></div>
+                        <div class="tr-confirm-title">${title}</div>
+                    </div>
+                    <div class="tr-confirm-body">${message}</div>
+                    <div class="tr-confirm-footer">
+                        <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-confirm-cancel">${cancelText}</button>
+                        <button class="tr-btn tr-btn-primary tr-btn-sm" id="tr-confirm-ok">${okText}</button>
+                    </div>`;
         overlay.appendChild(box);
         document.body.appendChild(overlay);
         box.querySelector('#tr-confirm-cancel').addEventListener('click', () => { overlay.remove(); resolve(false); });
@@ -1839,48 +1834,48 @@
         const box = document.createElement('div');
         box.className = 'tr-mode-box';
         box.innerHTML = `
-                <div class="tr-mode-header">
-                    <div class="tr-mode-icon"><svg viewBox="0 0 24 24" width="36" height="36" fill="#0B57D0"><path d="M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C12.9 17.55 11 21 11 21z"/></svg></div>
-                    <div class="tr-mode-title">Chọn chế độ Auto</div>
-                    <div class="tr-mode-sub">Chọn cách bạn muốn đọc sách tự động</div>
-                </div>
-                <div class="tr-mode-options">
-                    <div class="tr-mode-card" data-mode="1">
-                        <div class="tr-mode-card-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="#0B57D0"><path d="M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm-1 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z"/></svg></div>
-                        <div class="tr-mode-card-body">
-                            <div class="tr-mode-card-title">Chỉ sách chưa đọc</div>
-                            <div class="tr-mode-card-desc">Tự tìm và đọc tất cả sách chưa hoàn tất. Quá trình này sẽ tốn thời gian vì vừa kiếm sách chưa đọc vừa đọc.</div>
-                        </div>
-                        <div class="tr-mode-card-arrow"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg></div>
+                    <div class="tr-mode-header">
+                        <div class="tr-mode-icon"><svg viewBox="0 0 24 24" width="36" height="36" fill="#0B57D0"><path d="M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C12.9 17.55 11 21 11 21z"/></svg></div>
+                        <div class="tr-mode-title">Chọn chế độ Auto</div>
+                        <div class="tr-mode-sub">Chọn cách bạn muốn đọc sách tự động</div>
                     </div>
-                    <div class="tr-mode-card" data-mode="2">
-                        <div class="tr-mode-card-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#0B57D0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
-                        <div class="tr-mode-card-body">
-                            <div class="tr-mode-card-title">Đọc theo số lượng</div>
-                            <div class="tr-mode-card-desc">Nhập số cuốn cần đọc. Cuốn đã đọc hoặc sách giáo viên sẽ tự skip và không tính vào số lượng.</div>
+                    <div class="tr-mode-options">
+                        <div class="tr-mode-card" data-mode="1">
+                            <div class="tr-mode-card-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="#0B57D0"><path d="M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm-1 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z"/></svg></div>
+                            <div class="tr-mode-card-body">
+                                <div class="tr-mode-card-title">Chỉ sách chưa đọc</div>
+                                <div class="tr-mode-card-desc">Tự tìm và đọc tất cả sách chưa hoàn tất. Quá trình này sẽ tốn thời gian vì vừa kiếm sách chưa đọc vừa đọc.</div>
+                            </div>
+                            <div class="tr-mode-card-arrow"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg></div>
                         </div>
-                        <div class="tr-mode-card-arrow"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg></div>
-                    </div>
-                    <div class="tr-mode-card" data-mode="3">
-                        <div class="tr-mode-card-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="#0B57D0"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></div>
-                        <div class="tr-mode-card-body">
-                            <div class="tr-mode-card-title">Chọn sách từ danh sách</div>
-                            <div class="tr-mode-card-desc">Hiện danh sách sách và tự chọn cuốn cần đọc. Cuốn đã đọc nếu chọn sẽ tự skip.</div>
+                        <div class="tr-mode-card" data-mode="2">
+                            <div class="tr-mode-card-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#0B57D0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+                            <div class="tr-mode-card-body">
+                                <div class="tr-mode-card-title">Đọc theo số lượng</div>
+                                <div class="tr-mode-card-desc">Nhập số cuốn cần đọc. Cuốn đã đọc hoặc sách giáo viên sẽ tự skip và không tính vào số lượng.</div>
+                            </div>
+                            <div class="tr-mode-card-arrow"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg></div>
                         </div>
-                        <div class="tr-mode-card-arrow"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg></div>
-                    </div>
-                    <div class="tr-mode-card" data-mode="4">
-                        <div class="tr-mode-card-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#0B57D0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg></div>
-                        <div class="tr-mode-card-body">
-                            <div class="tr-mode-card-title">Cào lượt đọc</div>
-                            <div class="tr-mode-card-desc">Mở lại từ đầu các cuốn sách và kiểm tra lượt xem trước, sau khi đọc. Cuốn không tăng lượt sẽ có trong báo cáo.</div>
+                        <div class="tr-mode-card" data-mode="3">
+                            <div class="tr-mode-card-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="#0B57D0"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></div>
+                            <div class="tr-mode-card-body">
+                                <div class="tr-mode-card-title">Chọn sách từ danh sách</div>
+                                <div class="tr-mode-card-desc">Hiện danh sách sách và tự chọn cuốn cần đọc. Cuốn đã đọc nếu chọn sẽ tự skip.</div>
+                            </div>
+                            <div class="tr-mode-card-arrow"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg></div>
                         </div>
-                        <div class="tr-mode-card-arrow"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg></div>
+                        <div class="tr-mode-card" data-mode="4">
+                            <div class="tr-mode-card-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#0B57D0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg></div>
+                            <div class="tr-mode-card-body">
+                                <div class="tr-mode-card-title">Cào lượt đọc</div>
+                                <div class="tr-mode-card-desc">Mở lại từ đầu các cuốn sách và kiểm tra lượt xem trước, sau khi đọc. Cuốn không tăng lượt sẽ có trong báo cáo.</div>
+                            </div>
+                            <div class="tr-mode-card-arrow"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg></div>
+                        </div>
                     </div>
-                </div>
-                <div class="tr-mode-footer" style="justify-content: flex-end;">
-                    <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-mode-cancel">Huỷ</button>
-                </div>`;
+                    <div class="tr-mode-footer" style="justify-content: flex-end;">
+                        <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-mode-cancel">Huỷ</button>
+                    </div>`;
         overlay.appendChild(box);
         document.body.appendChild(overlay);
 
@@ -1915,63 +1910,63 @@
         let skippedItemsHtml = '';
         if (skippedList.length > 0) {
             skippedItemsHtml = `
-                    <div class="tr-summary-list-title">Danh sách tự động bỏ qua (${skippedList.length} cuốn):</div>
-                    <div class="tr-summary-list">
-                        ${skippedList.map((item, idx) => {
+                        <div class="tr-summary-list-title">Danh sách tự động bỏ qua (${skippedList.length} cuốn):</div>
+                        <div class="tr-summary-list">
+                            ${skippedList.map((item, idx) => {
                 let badgeClass = 'badge-general';
                 let badgeText = item.reason || 'Bỏ qua';
                 if (badgeText.includes('giáo viên')) badgeClass = 'badge-teacher';
                 else if (badgeText.includes('Đã') || badgeText.includes('100%')) badgeClass = 'badge-read';
                 else badgeClass = 'badge-warn';
                 return `
-                                <div class="tr-summary-item">
-                                    <div class="tr-summary-item-idx">${idx + 1}</div>
-                                    <div class="tr-summary-item-content">
-                                        <div class="tr-summary-item-title">${item.title}</div>
-                                        <div class="tr-summary-item-reason"><span class="tr-summary-badge ${badgeClass}">${badgeText}</span></div>
+                                    <div class="tr-summary-item">
+                                        <div class="tr-summary-item-idx">${idx + 1}</div>
+                                        <div class="tr-summary-item-content">
+                                            <div class="tr-summary-item-title">${item.title}</div>
+                                            <div class="tr-summary-item-reason"><span class="tr-summary-badge ${badgeClass}">${badgeText}</span></div>
+                                        </div>
                                     </div>
-                                </div>
-                            `;
+                                `;
             }).join('')}
-                    </div>
-                `;
+                        </div>
+                    `;
         } else {
             skippedItemsHtml = `
-                    <div class="tr-summary-empty">
-                        <div>Tất cả các sách trong phiên này đều được đọc thành công, không có cuốn nào bị bỏ qua!</div>
-                    </div>
-                `;
+                        <div class="tr-summary-empty">
+                            <div>Tất cả các sách trong phiên này đều được đọc thành công, không có cuốn nào bị bỏ qua!</div>
+                        </div>
+                    `;
         }
 
         box.innerHTML = `
-                <div class="tr-summary-header">
-                    <div class="tr-summary-icon"><svg viewBox="0 0 24 24" width="42" height="42" fill="#16A34A"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></div>
-                    <div class="tr-summary-title">Tổng kết phiên tự động đọc</div>
-                    <div class="tr-summary-sub">${totalTarget > 0 ? `Đã hoàn thành mục tiêu đọc ${successCount}/${totalTarget} cuốn` : `Đã duyệt hoàn tất phiên đọc sách`}</div>
-                </div>
-                <div class="tr-summary-stats">
-                    <div class="tr-summary-stat-card stat-success">
-                        <div class="tr-summary-stat-val">${successCount}</div>
-                        <div class="tr-summary-stat-lbl">Đã đọc xong</div>
+                    <div class="tr-summary-header">
+                        <div class="tr-summary-icon"><svg viewBox="0 0 24 24" width="42" height="42" fill="#16A34A"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></div>
+                        <div class="tr-summary-title">Tổng kết phiên tự động đọc</div>
+                        <div class="tr-summary-sub">${totalTarget > 0 ? `Đã hoàn thành mục tiêu đọc ${successCount}/${totalTarget} cuốn` : `Đã duyệt hoàn tất phiên đọc sách`}</div>
                     </div>
-                    <div class="tr-summary-stat-card stat-skipped">
-                        <div class="tr-summary-stat-val">${skippedList.length}</div>
-                        <div class="tr-summary-stat-lbl">Tự động bỏ qua</div>
+                    <div class="tr-summary-stats">
+                        <div class="tr-summary-stat-card stat-success">
+                            <div class="tr-summary-stat-val">${successCount}</div>
+                            <div class="tr-summary-stat-lbl">Đã đọc xong</div>
+                        </div>
+                        <div class="tr-summary-stat-card stat-skipped">
+                            <div class="tr-summary-stat-val">${skippedList.length}</div>
+                            <div class="tr-summary-stat-lbl">Tự động bỏ qua</div>
+                        </div>
+                        <div class="tr-summary-stat-card stat-total">
+                            <div class="tr-summary-stat-val">${totalProcessed}</div>
+                            <div class="tr-summary-stat-lbl">Tổng đã duyệt</div>
+                        </div>
                     </div>
-                    <div class="tr-summary-stat-card stat-total">
-                        <div class="tr-summary-stat-val">${totalProcessed}</div>
-                        <div class="tr-summary-stat-lbl">Tổng đã duyệt</div>
+                    ${skippedItemsHtml}
+                    <div class="tr-summary-footer">
+                        <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-summary-list-btn">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                            <span>Về danh sách sách</span>
+                        </button>
+                        <button class="tr-btn tr-btn-primary tr-btn-sm" id="tr-summary-close-btn">Đóng</button>
                     </div>
-                </div>
-                ${skippedItemsHtml}
-                <div class="tr-summary-footer">
-                    <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-summary-list-btn">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-                        <span>Về danh sách sách</span>
-                    </button>
-                    <button class="tr-btn tr-btn-primary tr-btn-sm" id="tr-summary-close-btn">Đóng</button>
-                </div>
-            `;
+                `;
         overlay.appendChild(box);
         document.body.appendChild(overlay);
 
@@ -1994,19 +1989,19 @@
         const box = document.createElement('div');
         box.className = 'tr-num-box';
         box.innerHTML = `
-                <div class="tr-num-header">
-                    <div class="tr-num-icon"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#0B57D0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
-                    <div class="tr-num-title">Nhập số cuốn cần đọc</div>
-                    <div class="tr-num-sub">Có ${maxBooks} cuốn chưa đọc</div>
-                </div>
-                <div class="tr-num-input-wrap">
-                    <input type="number" id="tr-num-input" min="1" max="${maxBooks}" value="5" placeholder="Nhập số...">
-                    <div class="tr-num-hint">Tối đa ${maxBooks} cuốn chưa đọc</div>
-                </div>
-                <div class="tr-num-footer">
-                    <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-num-cancel">Huỷ</button>
-                    <button class="tr-btn tr-btn-primary tr-btn-sm" id="tr-num-ok">Bắt đầu đọc</button>
-                </div>`;
+                    <div class="tr-num-header">
+                        <div class="tr-num-icon"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#0B57D0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+                        <div class="tr-num-title">Nhập số cuốn cần đọc</div>
+                        <div class="tr-num-sub">Có ${maxBooks} cuốn chưa đọc</div>
+                    </div>
+                    <div class="tr-num-input-wrap">
+                        <input type="number" id="tr-num-input" min="1" max="${maxBooks}" value="5" placeholder="Nhập số...">
+                        <div class="tr-num-hint">Tối đa ${maxBooks} cuốn chưa đọc</div>
+                    </div>
+                    <div class="tr-num-footer">
+                        <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-num-cancel">Huỷ</button>
+                        <button class="tr-btn tr-btn-primary tr-btn-sm" id="tr-num-ok">Bắt đầu đọc</button>
+                    </div>`;
         overlay.appendChild(box);
         document.body.appendChild(overlay);
         const input = box.querySelector('#tr-num-input');
@@ -2029,19 +2024,19 @@
         const box = document.createElement('div');
         box.className = 'tr-num-box';
         box.innerHTML = `
-                <div class="tr-num-header">
-                    <div class="tr-num-icon"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#0B57D0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></div>
-                    <div class="tr-num-title">Số vòng lặp cào lượt đọc</div>
-                    <div class="tr-num-sub">Danh sách gồm <strong>${bookCount} cuốn sách</strong></div>
-                </div>
-                <div class="tr-num-input-wrap">
-                    <input type="number" id="tr-loop-input" min="1" max="999" value="1" placeholder="Nhập số vòng lặp...">
-                    <div class="tr-num-hint">Nhập số vòng lặp lại (Ví dụ: 2 sẽ đọc hết danh sách rồi tự động đọc lại lần 2). Mặc định là 1 vòng.</div>
-                </div>
-                <div class="tr-num-footer">
-                    <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-loop-cancel">Huỷ</button>
-                    <button class="tr-btn tr-btn-primary tr-btn-sm" id="tr-loop-ok">Bắt đầu cào</button>
-                </div>`;
+                    <div class="tr-num-header">
+                        <div class="tr-num-icon"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#0B57D0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></div>
+                        <div class="tr-num-title">Số vòng lặp cào lượt đọc</div>
+                        <div class="tr-num-sub">Danh sách gồm <strong>${bookCount} cuốn sách</strong></div>
+                    </div>
+                    <div class="tr-num-input-wrap">
+                        <input type="number" id="tr-loop-input" min="1" max="999" value="1" placeholder="Nhập số vòng lặp...">
+                        <div class="tr-num-hint">Nhập số vòng lặp lại (Ví dụ: 2 sẽ đọc hết danh sách rồi tự động đọc lại lần 2). Mặc định là 1 vòng.</div>
+                    </div>
+                    <div class="tr-num-footer">
+                        <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-loop-cancel">Huỷ</button>
+                        <button class="tr-btn tr-btn-primary tr-btn-sm" id="tr-loop-ok">Bắt đầu cào</button>
+                    </div>`;
         overlay.appendChild(box);
         document.body.appendChild(overlay);
         const input = box.querySelector('#tr-loop-input');
@@ -2056,580 +2051,1211 @@
         overlay.addEventListener('click', (e) => { if (e.target === overlay) { overlay.remove(); resolve(null); } });
     });
 
+    const showBookStartGridDialog = (books) => new Promise((resolve) => {
+        const old = document.getElementById('tr-grid-start-overlay');
+        if (old) old.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'tr-grid-start-overlay';
+        const box = document.createElement('div');
+        box.className = 'tr-grid-start-box';
+        box.innerHTML = `
+                <div class="tr-grid-start-header">
+                    <div class="tr-grid-start-icon">
+                        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#0B57D0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7" rx="2"></rect>
+                            <rect x="14" y="3" width="7" height="7" rx="2"></rect>
+                            <rect x="14" y="14" width="7" height="7" rx="2"></rect>
+                            <rect x="3" y="14" width="7" height="7" rx="2"></rect>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="tr-grid-start-title">Chọn cuốn sách bắt đầu chạy</div>
+                        <div class="tr-grid-start-sub">Bấm chọn 1 ô vuông sách bất kỳ để bắt đầu chạy từ cuốn đó (${books.length} cuốn)</div>
+                    </div>
+                </div>
+                <div class="tr-grid-start-search-wrap">
+                    <input type="text" id="tr-grid-start-search" placeholder="🔍 Tìm kiếm tên sách nhanh...">
+                </div>
+                <div class="tr-grid-start-container" id="tr-grid-items">
+                    ${books.map((b, idx) => `
+                        <div class="tr-book-square" data-idx="${idx}" title="${b.title ? b.title.replace(/"/g, '&quot;') : ''}">
+                            <div class="tr-book-square-num">#${idx + 1}</div>
+                            <div class="tr-book-square-icon">
+                                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#0B57D0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                                </svg>
+                            </div>
+                            <div class="tr-book-square-title">${b.title || 'Cuốn sách #' + (idx + 1)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="tr-grid-start-footer">
+                    <div class="tr-grid-start-preview" id="tr-grid-preview">Di chuột vào ô vuông để xem tên sách</div>
+                    <div class="tr-grid-start-actions">
+                        <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-grid-back">Quay lại</button>
+                        <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-grid-cancel">Huỷ</button>
+                    </div>
+                </div>
+            `;
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        const previewEl = box.querySelector('#tr-grid-preview');
+        const searchInput = box.querySelector('#tr-grid-start-search');
+        const squares = box.querySelectorAll('.tr-book-square');
+
+        squares.forEach(sq => {
+            sq.addEventListener('mouseenter', () => {
+                const idx = parseInt(sq.dataset.idx, 10);
+                const book = books[idx];
+                if (book) previewEl.textContent = '#' + (idx + 1) + ': ' + (book.title || 'Không có tên');
+            });
+            sq.addEventListener('click', () => {
+                const idx = parseInt(sq.dataset.idx, 10);
+                overlay.remove();
+                resolve({
+                    startIndex: idx,
+                    books: books.slice(idx),
+                    label: 'Bắt đầu từ cuốn #' + (idx + 1)
+                });
+            });
+        });
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            squares.forEach(sq => {
+                const idx = parseInt(sq.dataset.idx, 10);
+                const b = books[idx];
+                const title = (b.title || '').toLowerCase();
+                const numStr = (idx + 1).toString();
+                if (!query || title.includes(query) || numStr === query) {
+                    sq.style.display = 'flex';
+                } else {
+                    sq.style.display = 'none';
+                }
+            });
+        });
+
+        box.querySelector('#tr-grid-back').addEventListener('click', () => {
+            overlay.remove();
+            resolve('back');
+        });
+        box.querySelector('#tr-grid-cancel').addEventListener('click', () => {
+            overlay.remove();
+            resolve(null);
+        });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+                resolve(null);
+            }
+        });
+    });
+
+    const showDirectionDialog = async (books) => {
+        while (true) {
+            const chosen = await new Promise((resolve) => {
+                const old = document.getElementById('tr-direction-overlay');
+                if (old) old.remove();
+
+                const overlay = document.createElement('div');
+                overlay.id = 'tr-direction-overlay';
+                const box = document.createElement('div');
+                box.className = 'tr-direction-box';
+                box.innerHTML = `
+                        <div class="tr-direction-header">
+                            <div class="tr-direction-icon">
+                                <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#0B57D0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                            </div>
+                            <div class="tr-direction-title">Chọn hướng bắt đầu đọc</div>
+                            <div class="tr-direction-sub">Danh sách gồm <strong>${books.length} cuốn sách</strong>. Cậu muốn bắt đầu chạy theo hướng nào?</div>
+                        </div>
+                        <div class="tr-direction-options">
+                            <div class="tr-direction-card" id="tr-dir-bottom-up">
+                                <div class="tr-direction-card-icon">⬆️</div>
+                                <div class="tr-direction-card-body">
+                                    <div class="tr-direction-card-title-row">
+                                        <span class="tr-direction-card-title">Từ dưới lên trên</span>
+                                        <span class="tr-direction-badge">Khuyên dùng</span>
+                                    </div>
+                                    <div class="tr-direction-card-desc">Đọc từ cuốn cuối danh sách (cũ nhất) ngược dần lên cuốn đầu tiên.</div>
+                                </div>
+                                <div class="tr-direction-card-arrow">→</div>
+                            </div>
+                            <div class="tr-direction-card" id="tr-dir-top-down">
+                                <div class="tr-direction-card-icon">⬇️</div>
+                                <div class="tr-direction-card-body">
+                                    <div class="tr-direction-card-title-row">
+                                        <span class="tr-direction-card-title">Từ trên xuống dưới</span>
+                                    </div>
+                                    <div class="tr-direction-card-desc">Đọc từ cuốn đầu tiên (mới nhất) xuôi dần xuống các cuốn bên dưới.</div>
+                                </div>
+                                <div class="tr-direction-card-arrow">→</div>
+                            </div>
+                            <div class="tr-direction-card" id="tr-dir-pick-grid">
+                                <div class="tr-direction-card-icon">📑</div>
+                                <div class="tr-direction-card-body">
+                                    <div class="tr-direction-card-title-row">
+                                        <span class="tr-direction-card-title">Tùy chọn cuốn bắt đầu</span>
+                                        <span class="tr-direction-badge-sec">Lưới ô vuông</span>
+                                    </div>
+                                    <div class="tr-direction-card-desc">Hiện các ô vuông tượng trưng cho các cuốn sách rồi bấm chọn cuốn để bắt đầu chạy.</div>
+                                </div>
+                                <div class="tr-direction-card-arrow">→</div>
+                            </div>
+                        </div>
+                        <div class="tr-direction-footer">
+                            <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-dir-cancel">Huỷ</button>
+                        </div>
+                    `;
+                overlay.appendChild(box);
+                document.body.appendChild(overlay);
+
+                box.querySelector('#tr-dir-bottom-up').addEventListener('click', () => {
+                    overlay.remove();
+                    resolve({
+                        mode: 'bottom_up',
+                        books: books.slice().reverse(),
+                        label: 'Từ dưới lên'
+                    });
+                });
+                box.querySelector('#tr-dir-top-down').addEventListener('click', () => {
+                    overlay.remove();
+                    resolve({
+                        mode: 'top_down',
+                        books: books.slice(),
+                        label: 'Từ trên xuống'
+                    });
+                });
+                box.querySelector('#tr-dir-pick-grid').addEventListener('click', () => {
+                    overlay.remove();
+                    resolve('pick_grid');
+                });
+                box.querySelector('#tr-dir-cancel').addEventListener('click', () => {
+                    overlay.remove();
+                    resolve(null);
+                });
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        overlay.remove();
+                        resolve(null);
+                    }
+                });
+            });
+
+            if (chosen === null) return null;
+            if (chosen === 'pick_grid') {
+                const gridResult = await showBookStartGridDialog(books);
+                if (gridResult === 'back') continue;
+                return gridResult;
+            }
+            return chosen;
+        }
+    };
+
     const injectStyles = () => {
         const style = document.createElement('style');
         const bgUrl = getBgUrl();
         style.textContent = `
-    @keyframes tr-cd-fade-in { from { opacity:0 } to { opacity:1 } }
-    @keyframes tr-cd-pop { 0% { transform: scale(.85); opacity:0 } 100% { transform: scale(1); opacity:1 } }
-    @keyframes tr-cd-num-pop { 0% { transform: scale(1) } 50% { transform: scale(1.1) } 100% { transform: scale(1) } }
-    @keyframes tr-pulse-dot { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.15); opacity: 0.7; } }
-    @keyframes tr-step-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(11,87,208,0.5); } 50% { box-shadow: 0 0 0 6px rgba(11,87,208,0); } }
-    @keyframes tr-modal-in { from { opacity:0; transform:scale(.9) } to { opacity:1; transform:scale(1) } }
-    @keyframes tr-panel-push-up {
-        0% { transform: translateY(30px) scale(0.96); opacity: 0.85; }
-        100% { transform: translateY(0) scale(1); opacity: 1; }
-    }
+        @keyframes tr-cd-fade-in { from { opacity:0 } to { opacity:1 } }
+        @keyframes tr-cd-pop { 0% { transform: scale(.85); opacity:0 } 100% { transform: scale(1); opacity:1 } }
+        @keyframes tr-cd-num-pop { 0% { transform: scale(1) } 50% { transform: scale(1.1) } 100% { transform: scale(1) } }
+        @keyframes tr-pulse-dot { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.15); opacity: 0.7; } }
+        @keyframes tr-step-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(11,87,208,0.5); } 50% { box-shadow: 0 0 0 6px rgba(11,87,208,0); } }
+        @keyframes tr-modal-in { from { opacity:0; transform:scale(.9) } to { opacity:1; transform:scale(1) } }
+        @keyframes tr-panel-push-up {
+            0% { transform: translateY(30px) scale(0.96); opacity: 0.85; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
 
-    canvas, .df-container, .df-book-stage, .df-ui-wrapper, div[class*="df-"] {
-        transform: translate3d(0, 0, 0) !important;
-        -webkit-transform: translate3d(0, 0, 0) !important;
-        will-change: transform, opacity !important;
-        backface-visibility: hidden !important;
-        perspective: 1000px !important;
-    }
+        canvas, .df-container, .df-book-stage, .df-ui-wrapper, div[class*="df-"] {
+            transform: translate3d(0, 0, 0) !important;
+            -webkit-transform: translate3d(0, 0, 0) !important;
+            will-change: transform, opacity !important;
+            backface-visibility: hidden !important;
+            perspective: 1000px !important;
+        }
 
-    .tr-panel {
-        position: fixed; bottom: 20px; left: 20px;
-        width: 440px;
-        max-height: 94vh;
-        background-image:
-            linear-gradient(rgba(255,255,255,0.45), rgba(247,249,252,0.6)),
-            url('${bgUrl}');
-        background-size: cover, cover;
-        background-position: center center, 70% center;
-        background-repeat: no-repeat, no-repeat;
-        border: 1px solid rgba(255,255,255,0.6);
-        border-radius: 28px;
-        box-shadow:
-            0 16px 44px rgba(0,0,0,0.24),
-            0 2px 6px rgba(0,0,0,0.08),
-            inset 0 1px 0 rgba(255,255,255,0.6);
-        z-index: 2147483646;
-        font-family: 'Roboto', -apple-system, 'Segoe UI', sans-serif;
-        color: #1A1C1E; overflow: hidden;
-        transition: width 0.45s cubic-bezier(0.34, 1.2, 0.64, 1),
-                    border-radius 0.4s cubic-bezier(0.2, 0.9, 0.3, 1),
-                    box-shadow 0.35s ease,
-                    transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
-        display: flex;
-        flex-direction: column;
-        transform-origin: bottom left;
-        will-change: width, border-radius, transform;
-    }
-    .tr-panel:hover {
-        box-shadow:
-            0 20px 48px rgba(0,0,0,0.26),
-            0 4px 10px rgba(0,0,0,0.08),
-            inset 0 1px 0 rgba(255,255,255,0.7);
-    }
-    .tr-panel.tr-panel-expanded {
-        min-height: auto;
-        animation: tr-panel-push-up 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
-        transform-origin: bottom center;
-    }
-    .tr-panel.tr-collapsed {
-        width: 250px;
-        min-height: auto !important;
-        border-radius: 100px;
-        box-shadow: 0 12px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.7);
-        transition: width 0.4s cubic-bezier(0.2, 0.9, 0.3, 1),
-                    border-radius 0.4s cubic-bezier(0.2, 0.9, 0.3, 1),
-                    box-shadow 0.35s ease,
-                    transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
-    }
-    .tr-panel.tr-collapsed:hover {
-        transform: translateY(-3px) scale(1.025);
-        box-shadow: 0 18px 42px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.85);
-    }
+        .tr-panel {
+            position: fixed; bottom: 20px; left: 20px;
+            width: 440px;
+            max-height: 94vh;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.45), rgba(247,249,252,0.6)),
+                url('${bgUrl}');
+            background-size: cover, cover;
+            background-position: center center, 70% center;
+            background-repeat: no-repeat, no-repeat;
+            border: 1px solid rgba(255,255,255,0.6);
+            border-radius: 28px;
+            box-shadow:
+                0 16px 44px rgba(0,0,0,0.24),
+                0 2px 6px rgba(0,0,0,0.08),
+                inset 0 1px 0 rgba(255,255,255,0.6);
+            z-index: 2147483646;
+            font-family: 'Roboto', -apple-system, 'Segoe UI', sans-serif;
+            color: #1A1C1E; overflow: hidden;
+            transition: width 0.45s cubic-bezier(0.34, 1.2, 0.64, 1),
+                        border-radius 0.4s cubic-bezier(0.2, 0.9, 0.3, 1),
+                        box-shadow 0.35s ease,
+                        transform 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
+            display: flex;
+            flex-direction: column;
+            transform-origin: bottom left;
+            will-change: width, border-radius, transform;
+        }
+        .tr-panel:hover {
+            box-shadow:
+                0 20px 48px rgba(0,0,0,0.26),
+                0 4px 10px rgba(0,0,0,0.08),
+                inset 0 1px 0 rgba(255,255,255,0.7);
+        }
+        .tr-panel.tr-panel-expanded {
+            min-height: auto;
+            animation: tr-panel-push-up 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transform-origin: bottom center;
+        }
+        .tr-panel.tr-collapsed {
+            width: 250px;
+            min-height: auto !important;
+            border-radius: 100px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.7);
+            transition: width 0.4s cubic-bezier(0.2, 0.9, 0.3, 1),
+                        border-radius 0.4s cubic-bezier(0.2, 0.9, 0.3, 1),
+                        box-shadow 0.35s ease,
+                        transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
+        }
+        .tr-panel.tr-collapsed:hover {
+            transform: translateY(-3px) scale(1.025);
+            box-shadow: 0 18px 42px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.85);
+        }
 
-    .tr-header {
-        display: flex; align-items: center; gap: 12px;
-        padding: 18px 22px;
-        background: transparent;
-        cursor: pointer; user-select: none;
-        position: relative;
-        border-bottom: 1px solid rgba(255,255,255,0.5);
-        flex-shrink: 0;
-        transition: padding 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
-    }
-    .tr-panel.tr-collapsed .tr-header {
-        padding: 12px 18px;
-        border-bottom-color: transparent;
-    }
-    .tr-header::after { display: none; }
-    .tr-logo { width: 40px; height: 40px; object-fit: contain; border-radius: 50%; flex-shrink: 0; }
-    .tr-title {
-        flex: 1; font-size: 16.5px; font-weight: 800; letter-spacing: -0.2px; line-height: 1.25;
-        color: #000000 !important;
-        text-shadow: none;
-        transition: font-size 0.3s ease;
-    }
-    .tr-panel.tr-collapsed .tr-title {
-        font-size: 15px;
-    }
-    .tr-subtitle {
-        font-size: 11.5px; font-weight: 700; display: block; margin-top: 2px;
-        color: #0284C7; font-style: normal;
-        text-shadow: 0 1px 2px rgba(255,255,255,0.9);
-        transition: font-size 0.3s ease;
-    }
-    .tr-panel.tr-collapsed .tr-subtitle {
-        font-size: 11px;
-    }
-    .tr-collapse {
-        width: 34px; height: 34px; border-radius: 50%;
-        background: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.9);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        cursor: pointer; display: flex; align-items: center; justify-content: center;
-        color: #0F172A;
-        transition: background .2s ease, transform .4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow .2s ease;
-        flex-shrink: 0;
-    }
-    .tr-collapse:hover {
-        background: rgba(255,255,255,0.95);
-        transform: scale(1.12);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-    }
-    .tr-collapse svg {
-        width: 18px; height: 18px;
-        transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    .tr-panel.tr-collapsed .tr-collapse svg {
-        transform: rotate(180deg) scale(0.92);
-    }
+        .tr-header {
+            display: flex; align-items: center; gap: 12px;
+            padding: 18px 22px;
+            background: transparent;
+            cursor: pointer; user-select: none;
+            position: relative;
+            border-bottom: 1px solid rgba(255,255,255,0.5);
+            flex-shrink: 0;
+            transition: padding 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
+        }
+        .tr-panel.tr-collapsed .tr-header {
+            padding: 12px 18px;
+            border-bottom-color: transparent;
+        }
+        .tr-header::after { display: none; }
+        .tr-logo { width: 40px; height: 40px; object-fit: contain; border-radius: 50%; flex-shrink: 0; }
+        .tr-title {
+            flex: 1; font-size: 16.5px; font-weight: 800; letter-spacing: -0.2px; line-height: 1.25;
+            color: #000000 !important;
+            text-shadow: none;
+            transition: font-size 0.3s ease;
+        }
+        .tr-panel.tr-collapsed .tr-title {
+            font-size: 15px;
+        }
+        .tr-subtitle {
+            font-size: 11.5px; font-weight: 700; display: block; margin-top: 2px;
+            color: #0284C7; font-style: normal;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.9);
+            transition: font-size 0.3s ease;
+        }
+        .tr-panel.tr-collapsed .tr-subtitle {
+            font-size: 11px;
+        }
+        .tr-collapse {
+            width: 34px; height: 34px; border-radius: 50%;
+            background: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.9);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            color: #0F172A;
+            transition: background .2s ease, transform .4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow .2s ease;
+            flex-shrink: 0;
+        }
+        .tr-collapse:hover {
+            background: rgba(255,255,255,0.95);
+            transform: scale(1.12);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }
+        .tr-collapse svg {
+            width: 18px; height: 18px;
+            transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .tr-panel.tr-collapsed .tr-collapse svg {
+            transform: rotate(180deg) scale(0.92);
+        }
 
-    .tr-body {
-        padding: 18px 20px 20px;
-        display: flex; flex-direction: column; gap: 14px;
-        flex: 1; min-height: 0; overflow-y: auto;
-        background: transparent;
-        max-height: 600px;
-        opacity: 1;
-        transform: translateY(0);
-        transition: max-height 0.45s cubic-bezier(0.34, 1.15, 0.64, 1),
-                    opacity 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
-                    transform 0.4s cubic-bezier(0.34, 1.15, 0.64, 1),
-                    padding 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-        will-change: max-height, opacity, transform;
-    }
-    .tr-body::-webkit-scrollbar { width: 6px }
-    .tr-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.5); border-radius: 3px }
-    .tr-body::-webkit-scrollbar-track { background: transparent }
-    .tr-footer-note {
-        color: #FFFFFF;
-        font-size: 10.5px;
-        font-weight: 600;
-        line-height: 1.4;
-        text-align: center;
-        text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-        margin-top: -8px;
-        padding-top: 2px;
-    }
-    .tr-view-count-debug {
-        display: none !important;
-        flex-shrink: 0;
-        padding: 10px 12px;
-        border: 1px solid rgba(147, 197, 253, 0.42);
-        border-radius: 12px;
-        background: rgba(15, 23, 42, 0.82);
-        color: #F8FAFC;
-        font-size: 11px;
-        line-height: 1.45;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
-    }
-    .tr-view-count-debug-head {
-        color: #BFDBFE;
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        margin-bottom: 4px;
-    }
-    .tr-view-count-debug-book {
-        overflow: hidden;
-        margin-bottom: 6px;
-        color: #FFFFFF;
-        font-weight: 650;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .tr-view-count-debug-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        color: rgba(226, 232, 240, 0.78);
-    }
-    .tr-view-count-debug-row strong {
-        color: #FFFFFF;
-        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-        font-weight: 700;
-        text-align: right;
-    }
-    .tr-view-count-debug-status {
-        margin-top: 6px;
-        color: #BFDBFE;
-        font-size: 10px;
-        overflow-wrap: anywhere;
-    }
-    .tr-panel.tr-collapsed .tr-body {
-        max-height: 0;
-        opacity: 0;
-        transform: translateY(12px) scale(0.98);
-        padding-top: 0;
-        padding-bottom: 0;
-        overflow: hidden;
-        pointer-events: none;
-        transition: max-height 0.35s cubic-bezier(0.2, 0.9, 0.3, 1),
-                    opacity 0.2s ease,
-                    transform 0.3s ease,
-                    padding 0.35s ease;
-    }
+        .tr-body {
+            padding: 18px 20px 20px;
+            display: flex; flex-direction: column; gap: 14px;
+            flex: 1; min-height: 0; overflow-y: auto;
+            background: transparent;
+            max-height: 600px;
+            opacity: 1;
+            transform: translateY(0);
+            transition: max-height 0.45s cubic-bezier(0.34, 1.15, 0.64, 1),
+                        opacity 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+                        transform 0.4s cubic-bezier(0.34, 1.15, 0.64, 1),
+                        padding 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: max-height, opacity, transform;
+        }
+        .tr-body::-webkit-scrollbar { width: 6px }
+        .tr-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.5); border-radius: 3px }
+        .tr-body::-webkit-scrollbar-track { background: transparent }
+        .tr-footer-note {
+            color: #FFFFFF;
+            font-size: 10.5px;
+            font-weight: 600;
+            line-height: 1.4;
+            text-align: center;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+            margin-top: -8px;
+            padding-top: 2px;
+        }
+        .tr-view-count-debug {
+            display: none !important;
+            flex-shrink: 0;
+            padding: 10px 12px;
+            border: 1px solid rgba(147, 197, 253, 0.42);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.82);
+            color: #F8FAFC;
+            font-size: 11px;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+        }
+        .tr-view-count-debug-head {
+            color: #BFDBFE;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .tr-view-count-debug-book {
+            overflow: hidden;
+            margin-bottom: 6px;
+            color: #FFFFFF;
+            font-weight: 650;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .tr-view-count-debug-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            color: rgba(226, 232, 240, 0.78);
+        }
+        .tr-view-count-debug-row strong {
+            color: #FFFFFF;
+            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+            font-weight: 700;
+            text-align: right;
+        }
+        .tr-view-count-debug-status {
+            margin-top: 6px;
+            color: #BFDBFE;
+            font-size: 10px;
+            overflow-wrap: anywhere;
+        }
+        .tr-panel.tr-collapsed .tr-body {
+            max-height: 0;
+            opacity: 0;
+            transform: translateY(12px) scale(0.98);
+            padding-top: 0;
+            padding-bottom: 0;
+            overflow: hidden;
+            pointer-events: none;
+            transition: max-height 0.35s cubic-bezier(0.2, 0.9, 0.3, 1),
+                        opacity 0.2s ease,
+                        transform 0.3s ease,
+                        padding 0.35s ease;
+        }
 
-    .tr-slider-stepper {
-        width: 100%;
-        padding: 6px 0 2px;
-        margin-top: auto;
-        flex-shrink: 0;
-    }
-    .tr-stepper-meta {
-        display: flex;
-        justify-content: flex-end;
-        min-height: 14px;
-        padding-top: 4px;
-    }
-    .tr-stepper-tag {
-        color: #0B57D0;
-        font-size: 10px;
-        font-weight: 700;
-        font-variant-numeric: tabular-nums;
-        text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
-    }
-    .tr-stepper-track-wrap {
-        position: relative;
-        width: 100%;
-        height: 8px;
-        background: rgba(203, 213, 225, 0.55);
-        border-radius: 100px;
-        overflow: hidden;
-        box-sizing: border-box;
-        box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
-    }
-    .tr-stepper-active-line {
-        height: 100%;
-        background: #0B57D0;
-        border-radius: 100px;
-        width: 0%;
-        min-width: 0%;
-        transition: width .35s cubic-bezier(.2,0,0,1);
-        box-shadow: none;
-    }
+        .tr-slider-stepper {
+            width: 100%;
+            padding: 6px 0 2px;
+            margin-top: auto;
+            flex-shrink: 0;
+        }
+        .tr-stepper-meta {
+            display: flex;
+            justify-content: flex-end;
+            min-height: 14px;
+            padding-top: 4px;
+        }
+        .tr-stepper-tag {
+            color: #0B57D0;
+            font-size: 10px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+        }
+        .tr-stepper-track-wrap {
+            position: relative;
+            width: 100%;
+            height: 8px;
+            background: rgba(203, 213, 225, 0.55);
+            border-radius: 100px;
+            overflow: hidden;
+            box-sizing: border-box;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+        }
+        .tr-stepper-active-line {
+            height: 100%;
+            background: #0B57D0;
+            border-radius: 100px;
+            width: 0%;
+            min-width: 0%;
+            transition: width .35s cubic-bezier(.2,0,0,1);
+            box-shadow: none;
+        }
 
-    #tr-scrape-overlay {
-        position: fixed; inset: 0;
-        background: rgba(0, 0, 0, 0.45);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        z-index: 2147483647;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        gap: 0;
-        font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        animation: tr-cd-fade-in .25s ease-out;
-        -webkit-font-smoothing: antialiased;
-        pointer-events: none;
-    }
-    .tr-scrape-message {
-        color: #FFFFFF !important;
-        font-size: 18px; font-weight: 500; letter-spacing: .2px;
-        text-align: center; padding: 0 20px;
-        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
-    }
+        #tr-scrape-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 2147483647;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 0;
+            font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            animation: tr-cd-fade-in .25s ease-out;
+            -webkit-font-smoothing: antialiased;
+            pointer-events: none;
+        }
+        .tr-scrape-message {
+            color: #FFFFFF !important;
+            font-size: 18px; font-weight: 500; letter-spacing: .2px;
+            text-align: center; padding: 0 20px;
+            text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+        }
 
-    .tr-perf-card {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 10px 14px;
-        background: rgba(255, 255, 255, 0.65);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.8);
-        border-radius: 18px;
-        cursor: pointer; user-select: none;
-        transition: all .25s cubic-bezier(.2,0,0,1);
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
-        flex-shrink: 0;
-    }
-    .tr-perf-card:hover {
-        background: rgba(255, 255, 255, 0.9);
-        border-color: #0B57D0;
-        transform: translateY(-1px);
-        box-shadow: 0 6px 18px rgba(11, 87, 208, 0.12);
-    }
-    .tr-perf-card.active {
-        background: linear-gradient(135deg, rgba(255, 247, 237, 0.95), rgba(254, 243, 199, 0.92));
-        border-color: rgba(245, 158, 11, 0.7);
-        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.18);
-    }
-    .tr-perf-info {
-        display: flex; align-items: center; gap: 10px;
-    }
-    .tr-perf-icon-wrap {
-        width: 34px; height: 34px; border-radius: 50%;
-        background: rgba(11, 87, 208, 0.1); color: #0B57D0;
-        display: flex; align-items: center; justify-content: center;
-        transition: all .25s ease; flex-shrink: 0;
-    }
-    .tr-perf-card.active .tr-perf-icon-wrap {
-        background: linear-gradient(135deg, #FF6B00, #F59E0B);
-        color: #FFFFFF;
-        box-shadow: 0 2px 10px rgba(245, 158, 11, 0.45);
-    }
-    .tr-perf-text {
-        display: flex; flex-direction: column; gap: 2px;
-    }
-    .tr-perf-title {
-        font-size: 13px; font-weight: 700; color: #1E293B; letter-spacing: -0.1px;
-    }
-    .tr-perf-card.active .tr-perf-title {
-        color: #B45309;
-    }
-    .tr-perf-desc {
-        font-size: 11px; color: #64748B; font-weight: 500;
-    }
-    .tr-perf-card.active .tr-perf-desc {
-        color: #D97706;
-    }
-    .tr-perf-switch {
-        width: 42px; height: 24px; border-radius: 100px;
-        background: #CBD5E1; position: relative;
-        transition: background .25s cubic-bezier(.2,0,0,1);
-        flex-shrink: 0;
-    }
-    .tr-perf-thumb {
-        width: 18px; height: 18px; border-radius: 50%;
-        background: #FFFFFF; position: absolute;
-        top: 3px; left: 3px;
-        transition: transform .25s cubic-bezier(.2,0,0,1);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-    }
-    .tr-perf-card.active .tr-perf-switch {
-        background: #F59E0B;
-    }
-    .tr-perf-card.active .tr-perf-thumb {
-        transform: translateX(18px);
-    }
+        .tr-perf-card {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 18px;
+            cursor: pointer; user-select: none;
+            transition: all .25s cubic-bezier(.2,0,0,1);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+            flex-shrink: 0;
+        }
+        .tr-perf-card:hover {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: #0B57D0;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(11, 87, 208, 0.12);
+        }
+        .tr-perf-card.active {
+            background: linear-gradient(135deg, rgba(255, 247, 237, 0.95), rgba(254, 243, 199, 0.92));
+            border-color: rgba(245, 158, 11, 0.7);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.18);
+        }
+        .tr-perf-info {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .tr-perf-icon-wrap {
+            width: 34px; height: 34px; border-radius: 50%;
+            background: rgba(11, 87, 208, 0.1); color: #0B57D0;
+            display: flex; align-items: center; justify-content: center;
+            transition: all .25s ease; flex-shrink: 0;
+        }
+        .tr-perf-card.active .tr-perf-icon-wrap {
+            background: linear-gradient(135deg, #FF6B00, #F59E0B);
+            color: #FFFFFF;
+            box-shadow: 0 2px 10px rgba(245, 158, 11, 0.45);
+        }
+        .tr-perf-text {
+            display: flex; flex-direction: column; gap: 2px;
+        }
+        .tr-perf-title {
+            font-size: 13px; font-weight: 700; color: #1E293B; letter-spacing: -0.1px;
+        }
+        .tr-perf-card.active .tr-perf-title {
+            color: #B45309;
+        }
+        .tr-perf-desc {
+            font-size: 11px; color: #64748B; font-weight: 500;
+        }
+        .tr-perf-card.active .tr-perf-desc {
+            color: #D97706;
+        }
+        .tr-perf-switch {
+            width: 42px; height: 24px; border-radius: 100px;
+            background: #CBD5E1; position: relative;
+            transition: background .25s cubic-bezier(.2,0,0,1);
+            flex-shrink: 0;
+        }
+        .tr-perf-thumb {
+            width: 18px; height: 18px; border-radius: 50%;
+            background: #FFFFFF; position: absolute;
+            top: 3px; left: 3px;
+            transition: transform .25s cubic-bezier(.2,0,0,1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        }
+        .tr-perf-card.active .tr-perf-switch {
+            background: #F59E0B;
+        }
+        .tr-perf-card.active .tr-perf-thumb {
+            transform: translateX(18px);
+        }
 
-    .tr-toast {
-        position: fixed; top: 24px; left: 50%;
-        transform: translate(-50%, -20px) scale(0.95);
-        background: rgba(15, 23, 42, 0.94);
-        color: #FFFFFF;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 100px;
-        padding: 12px 24px;
-        display: flex; align-items: center; gap: 10px;
-        font-size: 13.5px; font-weight: 600;
-        font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4), 0 0 20px rgba(11, 87, 208, 0.3);
-        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-        z-index: 2147483647; opacity: 0; pointer-events: none;
-        transition: all .3s cubic-bezier(.2,0,0,1);
-        -webkit-font-smoothing: antialiased;
-    }
-    .tr-toast.tr-toast-show {
-        opacity: 1; transform: translate(-50%, 0) scale(1); pointer-events: auto;
-    }
+        .tr-toast {
+            position: fixed; top: 24px; left: 50%;
+            transform: translate(-50%, -20px) scale(0.95);
+            background: rgba(15, 23, 42, 0.94);
+            color: #FFFFFF;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 100px;
+            padding: 12px 24px;
+            display: flex; align-items: center; gap: 10px;
+            font-size: 13.5px; font-weight: 600;
+            font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4), 0 0 20px rgba(11, 87, 208, 0.3);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            z-index: 2147483647; opacity: 0; pointer-events: none;
+            transition: all .3s cubic-bezier(.2,0,0,1);
+            -webkit-font-smoothing: antialiased;
+        }
+        .tr-toast.tr-toast-show {
+            opacity: 1; transform: translate(-50%, 0) scale(1); pointer-events: auto;
+        }
 
-    .tr-eta { display: none !important; }
-    .tr-eta.tr-on { display: none !important; }
+        .tr-eta { display: none !important; }
+        .tr-eta.tr-on { display: none !important; }
 
-    #tr-page-blocker {
-        display: none;
-        position: fixed;
-        inset: 0;
-        z-index: 2147483640;
-        background: transparent;
-        cursor: not-allowed;
-        user-select: none;
-        -webkit-user-select: none;
-    }
+        #tr-page-blocker {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 2147483640;
+            background: transparent;
+            cursor: not-allowed;
+            user-select: none;
+            -webkit-user-select: none;
+        }
 
-    .tr-btn-group { margin-top: auto; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
-    .tr-btn-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        width: 100%;
-    }
-    .tr-btn-row .tr-btn {
-        padding: 10px 10px;
-        font-size: 12px;
-        justify-content: center;
-        white-space: nowrap;
-        gap: 6px;
-    }
-    .tr-btn-row .tr-btn svg { width: 15px; height: 15px; }
+        .tr-btn-group { margin-top: auto; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+        .tr-btn-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            width: 100%;
+        }
+        .tr-btn-row .tr-btn {
+            padding: 10px 10px;
+            font-size: 12px;
+            justify-content: center;
+            white-space: nowrap;
+            gap: 6px;
+        }
+        .tr-btn-row .tr-btn svg { width: 15px; height: 15px; }
 
-    .tr-btn {
-        border: 1px solid rgba(255,255,255,0.55);
-        border-radius: 100px;
-        padding: 13px 20px;
-        font-size: 13.5px; font-weight: 600;
-        font-family: inherit; cursor: pointer;
-        display: flex; align-items: center; justify-content: center; gap: 10px;
-        transition: background .2s, box-shadow .2s, opacity .2s, transform .1s, border-color .2s;
-        position: relative; overflow: hidden; flex-shrink: 0;
-    }
-    .tr-btn-sm { padding: 10px 16px; font-size: 12.5px }
-    .tr-btn svg { width: 17px; height: 17px; flex-shrink: 0; position: relative; z-index: 1 }
-    .tr-btn span { position: relative; z-index: 1 }
-    .tr-btn:disabled { opacity: .45; cursor: not-allowed }
-    .tr-btn:active:not(:disabled) { transform: scale(.98) }
-    .tr-btn-primary { background: rgba(11,87,208,0.85); color: #fff; border-color: rgba(255,255,255,0.45); box-shadow: 0 6px 20px rgba(11,87,208,0.38), inset 0 1px 0 rgba(255,255,255,0.4); }
-    .tr-btn-primary:hover:not(:disabled) { background: rgba(10,76,184,0.95); }
-    .tr-btn-primary svg { filter: drop-shadow(0 0 4px rgba(255,255,255,0.6)); }
-    .tr-btn-secondary { background: rgba(255,255,255,0.4); color: #0B57D0; border-color: rgba(255,255,255,0.6); box-shadow: 0 3px 12px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.7); }
-    .tr-btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.85); }
-    .tr-btn-danger { background: rgba(186,26,26,0.85); color: #fff; border-color: rgba(255,255,255,0.45); box-shadow: 0 6px 20px rgba(186,26,26,0.38), inset 0 1px 0 rgba(255,255,255,0.4); }
-    .tr-btn-danger:hover:not(:disabled) { background: rgba(160,24,24,0.95); }
+        .tr-btn {
+            border: 1px solid rgba(255,255,255,0.55);
+            border-radius: 100px;
+            padding: 13px 20px;
+            font-size: 13.5px; font-weight: 600;
+            font-family: inherit; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            transition: background .2s, box-shadow .2s, opacity .2s, transform .1s, border-color .2s;
+            position: relative; overflow: hidden; flex-shrink: 0;
+        }
+        .tr-btn-sm { padding: 10px 16px; font-size: 12.5px }
+        .tr-btn svg { width: 17px; height: 17px; flex-shrink: 0; position: relative; z-index: 1 }
+        .tr-btn span { position: relative; z-index: 1 }
+        .tr-btn:disabled { opacity: .45; cursor: not-allowed }
+        .tr-btn:active:not(:disabled) { transform: scale(.98) }
+        .tr-btn-primary { background: rgba(11,87,208,0.85); color: #fff; border-color: rgba(255,255,255,0.45); box-shadow: 0 6px 20px rgba(11,87,208,0.38), inset 0 1px 0 rgba(255,255,255,0.4); }
+        .tr-btn-primary:hover:not(:disabled) { background: rgba(10,76,184,0.95); }
+        .tr-btn-primary svg { filter: drop-shadow(0 0 4px rgba(255,255,255,0.6)); }
+        .tr-btn-secondary { background: rgba(255,255,255,0.4); color: #0B57D0; border-color: rgba(255,255,255,0.6); box-shadow: 0 3px 12px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.7); }
+        .tr-btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.85); }
+        .tr-btn-danger { background: rgba(186,26,26,0.85); color: #fff; border-color: rgba(255,255,255,0.45); box-shadow: 0 6px 20px rgba(186,26,26,0.38), inset 0 1px 0 rgba(255,255,255,0.4); }
+        .tr-btn-danger:hover:not(:disabled) { background: rgba(160,24,24,0.95); }
 
-    #tr-countdown-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; animation: tr-cd-fade-in .3s ease-out; transition: opacity .25s ease-out; font-family: 'Roboto', -apple-system, 'Segoe UI', sans-serif; pointer-events: none; }
-    #tr-countdown-overlay.tr-cd-out { opacity: 0; pointer-events: none }
-    .tr-cd-label { color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 400; letter-spacing: .3px; animation: tr-cd-pop .4s ease-out; text-align: center; padding: 0 20px; text-shadow: 0 1px 4px rgba(0,0,0,0.6) }
-    .tr-cd-num { color: #fff; font-size: 56px; font-weight: 300; line-height: 1; animation: tr-cd-num-pop .5s ease-out; font-variant-numeric: tabular-nums; text-shadow: 0 2px 12px rgba(0,0,0,0.7) }
+        #tr-countdown-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; animation: tr-cd-fade-in .3s ease-out; transition: opacity .25s ease-out; font-family: 'Roboto', -apple-system, 'Segoe UI', sans-serif; pointer-events: none; }
+        #tr-countdown-overlay.tr-cd-out { opacity: 0; pointer-events: none }
+        .tr-cd-label { color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 400; letter-spacing: .3px; animation: tr-cd-pop .4s ease-out; text-align: center; padding: 0 20px; text-shadow: 0 1px 4px rgba(0,0,0,0.6) }
+        .tr-cd-num { color: #fff; font-size: 56px; font-weight: 300; line-height: 1; animation: tr-cd-num-pop .5s ease-out; font-variant-numeric: tabular-nums; text-shadow: 0 2px 12px rgba(0,0,0,0.7) }
 
-    #tr-report-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 2147483647; display: flex; align-items: center; justify-content: center }
-    .tr-report-close { position: absolute; top: 20px; right: 20px; width: 42px; height: 42px; border-radius: 50%; background: #BA1A1A; color: #fff; border: none; font-size: 20px; font-weight: 700; cursor: pointer; z-index: 10 }
-    .tr-report-iframe { width: 92vw; height: 92vh; border: none; border-radius: 14px; background: #0F172A }
+        #tr-report-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 2147483647; display: flex; align-items: center; justify-content: center }
+        .tr-report-close { position: absolute; top: 20px; right: 20px; width: 42px; height: 42px; border-radius: 50%; background: #BA1A1A; color: #fff; border: none; font-size: 20px; font-weight: 700; cursor: pointer; z-index: 10 }
+        .tr-report-iframe { width: 92vw; height: 92vh; border: none; border-radius: 14px; background: #0F172A }
 
-    #tr-picker-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 2147483647; display: flex; align-items: center; justify-content: center; font-family: 'Roboto', -apple-system, 'Segoe UI', sans-serif; }
-    .tr-picker-box { background: rgba(254,247,255,0.97); border: 1px solid rgba(255,255,255,0.6); border-radius: 28px; width: 90vw; max-width: 720px; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.7); animation: tr-modal-in .35s cubic-bezier(.2,0,0,1); overflow: hidden; }
-    .tr-picker-header { padding: 20px 24px 12px; border-bottom: 1px solid rgba(226,232,240,0.8) }
-    .tr-picker-title { font-size: 17px; font-weight: 700; color: #1A1C1E }
-    .tr-picker-sub { font-size: 12px; color: #64748B; margin-top: 4px }
-    .tr-picker-controls { padding: 16px 24px; background: rgba(248,250,252,0.7); border-bottom: 1px solid rgba(226,232,240,0.8); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
-    .tr-picker-ctrl { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #334155 }
-    .tr-picker-ctrl label { font-weight: 600 }
-    .tr-picker-ctrl input[type="number"] { width: 90px; padding: 8px 12px; border-radius: 10px; border: 1px solid #CBD5E1; font-family: inherit; font-size: 13px; outline: none; background: rgba(255,255,255,0.9); }
-    .tr-picker-ctrl input[type="number"]:focus { border-color: #0B57D0; box-shadow: 0 0 0 3px rgba(11,87,208,0.15) }
-    .tr-picker-hint { font-size: 11.5px; color: #94A3B8 }
-    .tr-picker-actions { display: flex; gap: 8px }
-    .tr-picker-mini { padding: 7px 14px; border-radius: 100px; background: rgba(226,232,240,0.85); color: #334155; border: 1px solid rgba(255,255,255,0.6); cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; transition: background .15s; }
-    .tr-picker-mini:hover { background: rgba(203,213,225,0.95) }
-    .tr-picker-list { flex: 1; overflow-y: auto; padding: 8px 12px }
-    .tr-picker-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: background .12s; }
-    .tr-picker-item:hover { background: rgba(241,245,249,0.8) }
-    .tr-picker-item input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; cursor: pointer; accent-color: #0B57D0; flex-shrink: 0; }
-    .tr-picker-item-info { flex: 1; min-width: 0 }
-    .tr-picker-item-title { font-size: 13px; font-weight: 600; color: #1A1C1E; line-height: 1.35; word-break: break-word }
-    .tr-picker-item-meta { font-size: 11px; color: #64748B; margin-top: 3px; font-weight: 500 }
-    .tr-picker-item.tr-read .tr-picker-item-title { color: #64748B }
-    .tr-picker-item.tr-read .tr-picker-item-meta { color: #16A34A }
-    .tr-picker-footer { padding: 14px 24px; border-top: 1px solid rgba(226,232,240,0.8); display: flex; justify-content: space-between; align-items: center; background: rgba(248,250,252,0.7); }
-    .tr-picker-count { font-size: 13px; font-weight: 700; color: #0B57D0 }
-    .tr-picker-footer > div:last-child { display: flex; gap: 10px }
+        #tr-picker-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 2147483647; display: flex; align-items: center; justify-content: center; font-family: 'Roboto', -apple-system, 'Segoe UI', sans-serif; }
+        .tr-picker-box { background: rgba(254,247,255,0.97); border: 1px solid rgba(255,255,255,0.6); border-radius: 28px; width: 90vw; max-width: 720px; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.7); animation: tr-modal-in .35s cubic-bezier(.2,0,0,1); overflow: hidden; }
+        .tr-picker-header { padding: 20px 24px 12px; border-bottom: 1px solid rgba(226,232,240,0.8) }
+        .tr-picker-title { font-size: 17px; font-weight: 700; color: #1A1C1E }
+        .tr-picker-sub { font-size: 12px; color: #64748B; margin-top: 4px }
+        .tr-picker-controls { padding: 16px 24px; background: rgba(248,250,252,0.7); border-bottom: 1px solid rgba(226,232,240,0.8); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .tr-picker-ctrl { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #334155 }
+        .tr-picker-ctrl label { font-weight: 600 }
+        .tr-picker-ctrl input[type="number"] { width: 90px; padding: 8px 12px; border-radius: 10px; border: 1px solid #CBD5E1; font-family: inherit; font-size: 13px; outline: none; background: rgba(255,255,255,0.9); }
+        .tr-picker-ctrl input[type="number"]:focus { border-color: #0B57D0; box-shadow: 0 0 0 3px rgba(11,87,208,0.15) }
+        .tr-picker-hint { font-size: 11.5px; color: #94A3B8 }
+        .tr-picker-actions { display: flex; gap: 8px }
+        .tr-picker-mini { padding: 7px 14px; border-radius: 100px; background: rgba(226,232,240,0.85); color: #334155; border: 1px solid rgba(255,255,255,0.6); cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; transition: background .15s; }
+        .tr-picker-mini:hover { background: rgba(203,213,225,0.95) }
+        .tr-picker-list { flex: 1; overflow-y: auto; padding: 8px 12px }
+        .tr-picker-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: background .12s; }
+        .tr-picker-item:hover { background: rgba(241,245,249,0.8) }
+        .tr-picker-item input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; cursor: pointer; accent-color: #0B57D0; flex-shrink: 0; }
+        .tr-picker-item-info { flex: 1; min-width: 0 }
+        .tr-picker-item-title { font-size: 13px; font-weight: 600; color: #1A1C1E; line-height: 1.35; word-break: break-word }
+        .tr-picker-item-meta { font-size: 11px; color: #64748B; margin-top: 3px; font-weight: 500 }
+        .tr-picker-item.tr-read .tr-picker-item-title { color: #64748B }
+        .tr-picker-item.tr-read .tr-picker-item-meta { color: #16A34A }
+        .tr-picker-footer { padding: 14px 24px; border-top: 1px solid rgba(226,232,240,0.8); display: flex; justify-content: space-between; align-items: center; background: rgba(248,250,252,0.7); }
+        .tr-picker-count { font-size: 13px; font-weight: 700; color: #0B57D0 }
+        .tr-picker-footer > div:last-child { display: flex; gap: 10px }
 
-    #tr-mode-overlay, #tr-num-overlay, #tr-loop-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 2147483647; display: flex; align-items: center; justify-content: center; font-family: 'Roboto', -apple-system, 'Segoe UI', sans-serif; animation: tr-cd-fade-in .2s ease-out; }
-    .tr-mode-box, .tr-num-box { background: rgba(254,247,255,0.97); border: 1px solid rgba(255,255,255,0.6); border-radius: 28px; width: 90vw; max-width: 480px; box-shadow: 0 24px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.7); animation: tr-modal-in .3s cubic-bezier(.2,0,0,1); overflow: hidden; }
-    .tr-mode-header, .tr-num-header { padding: 24px 24px 16px; text-align: center; }
-    .tr-mode-icon, .tr-num-icon { font-size: 36px; margin-bottom: 8px; }
-    .tr-mode-title, .tr-num-title { font-size: 18px; font-weight: 700; color: #1A1C1E; }
-    .tr-mode-sub, .tr-num-sub { font-size: 12.5px; color: #64748B; margin-top: 4px; }
-    .tr-mode-options { padding: 0 16px 8px; display: flex; flex-direction: column; gap: 8px; }
-    .tr-mode-card { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 16px; background: rgba(255,255,255,0.7); border: 1.5px solid rgba(226,232,240,0.8); cursor: pointer; transition: all .15s ease; }
-    .tr-mode-card:hover { background: rgba(11,87,208,0.06); border-color: rgba(11,87,208,0.3); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(11,87,208,0.12); }
-    .tr-mode-card:active { transform: scale(0.98); }
-    .tr-mode-card-icon { font-size: 28px; flex-shrink: 0; }
-    .tr-mode-card-body { flex: 1; min-width: 0; }
-    .tr-mode-card-title { font-size: 14px; font-weight: 700; color: #1A1C1E; margin-bottom: 3px; }
-    .tr-mode-card-desc { font-size: 11.5px; color: #64748B; line-height: 1.4; }
-    .tr-mode-card-arrow { font-size: 18px; color: #94A3B8; flex-shrink: 0; transition: transform .15s; }
-    .tr-mode-card:hover .tr-mode-card-arrow { transform: translateX(3px); color: #0B57D0; }
-    .tr-mode-footer { padding: 14px 24px; border-top: 1px solid rgba(226,232,240,0.8); display: flex; justify-content: space-between; align-items: center; background: rgba(248,250,252,0.7); }
-    .tr-mode-info { font-size: 12px; color: #64748B; font-weight: 500; }
-    .tr-num-input-wrap { padding: 8px 24px 16px; }
-    .tr-num-input-wrap input { width: 100%; padding: 14px 18px; border-radius: 14px; border: 1.5px solid #CBD5E1; font-family: inherit; font-size: 16px; font-weight: 600; text-align: center; outline: none; background: rgba(255,255,255,0.9); transition: border-color .15s, box-shadow .15s; box-sizing: border-box; }
-    .tr-num-input-wrap input:focus { border-color: #0B57D0; box-shadow: 0 0 0 3px rgba(11,87,208,0.15); }
-    .tr-num-hint { font-size: 11.5px; color: #94A3B8; text-align: center; margin-top: 8px; }
-    .tr-num-footer { padding: 14px 24px; border-top: 1px solid rgba(226,232,240,0.8); display: flex; justify-content: flex-end; gap: 10px; background: rgba(248,250,252,0.7); }
+        #tr-mode-overlay, #tr-num-overlay, #tr-loop-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 2147483647; display: flex; align-items: center; justify-content: center; font-family: 'Roboto', -apple-system, 'Segoe UI', sans-serif; animation: tr-cd-fade-in .2s ease-out; }
+        .tr-mode-box, .tr-num-box { background: rgba(254,247,255,0.97); border: 1px solid rgba(255,255,255,0.6); border-radius: 28px; width: 90vw; max-width: 480px; box-shadow: 0 24px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.7); animation: tr-modal-in .3s cubic-bezier(.2,0,0,1); overflow: hidden; }
+        .tr-mode-header, .tr-num-header { padding: 24px 24px 16px; text-align: center; }
+        .tr-mode-icon, .tr-num-icon { font-size: 36px; margin-bottom: 8px; }
+        .tr-mode-title, .tr-num-title { font-size: 18px; font-weight: 700; color: #1A1C1E; }
+        .tr-mode-sub, .tr-num-sub { font-size: 12.5px; color: #64748B; margin-top: 4px; }
+        .tr-mode-options { padding: 0 16px 8px; display: flex; flex-direction: column; gap: 8px; }
+        .tr-mode-card { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 16px; background: rgba(255,255,255,0.7); border: 1.5px solid rgba(226,232,240,0.8); cursor: pointer; transition: all .15s ease; }
+        .tr-mode-card:hover { background: rgba(11,87,208,0.06); border-color: rgba(11,87,208,0.3); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(11,87,208,0.12); }
+        .tr-mode-card:active { transform: scale(0.98); }
+        .tr-mode-card-icon { font-size: 28px; flex-shrink: 0; }
+        .tr-mode-card-body { flex: 1; min-width: 0; }
+        .tr-mode-card-title { font-size: 14px; font-weight: 700; color: #1A1C1E; margin-bottom: 3px; }
+        .tr-mode-card-desc { font-size: 11.5px; color: #64748B; line-height: 1.4; }
+        .tr-mode-card-arrow { font-size: 18px; color: #94A3B8; flex-shrink: 0; transition: transform .15s; }
+        .tr-mode-card:hover .tr-mode-card-arrow { transform: translateX(3px); color: #0B57D0; }
+        .tr-mode-footer { padding: 14px 24px; border-top: 1px solid rgba(226,232,240,0.8); display: flex; justify-content: space-between; align-items: center; background: rgba(248,250,252,0.7); }
+        .tr-mode-info { font-size: 12px; color: #64748B; font-weight: 500; }
+        .tr-num-input-wrap { padding: 8px 24px 16px; }
+        .tr-num-input-wrap input { width: 100%; padding: 14px 18px; border-radius: 14px; border: 1.5px solid #CBD5E1; font-family: inherit; font-size: 16px; font-weight: 600; text-align: center; outline: none; background: rgba(255,255,255,0.9); transition: border-color .15s, box-shadow .15s; box-sizing: border-box; }
+        .tr-num-input-wrap input:focus { border-color: #0B57D0; box-shadow: 0 0 0 3px rgba(11,87,208,0.15); }
+        .tr-num-hint { font-size: 11.5px; color: #94A3B8; text-align: center; margin-top: 8px; }
+        .tr-num-footer { padding: 14px 24px; border-top: 1px solid rgba(226,232,240,0.8); display: flex; justify-content: flex-end; gap: 10px; background: rgba(248,250,252,0.7); }
 
-    #tr-confirm-overlay, #tr-summary-overlay {
-        position: fixed; inset: 0; background: rgba(0,0,0,0.55);
-        backdrop-filter: blur(5px); z-index: 2147483647;
-        display: flex; align-items: center; justify-content: center;
-        font-family: 'Roboto', -apple-system, 'Segoe UI', sans-serif;
-        animation: tr-cd-fade-in .2s ease-out;
-    }
-    .tr-confirm-box {
-        background: rgba(254,247,255,0.98);
-        border: 1px solid rgba(255,255,255,0.7);
-        border-radius: 24px; width: 90vw; max-width: 420px;
-        box-shadow: 0 24px 60px rgba(0,0,0,0.35);
-        padding: 24px; animation: tr-modal-in .25s cubic-bezier(.2,0,0,1);
-    }
-    .tr-confirm-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-    .tr-confirm-icon { font-size: 28px; }
-    .tr-confirm-title { font-size: 17px; font-weight: 700; color: #1A1C1E; }
-    .tr-confirm-body { font-size: 13.5px; color: #475569; line-height: 1.5; margin-bottom: 20px; }
-    .tr-confirm-footer { display: flex; justify-content: flex-end; gap: 10px; }
+        #tr-confirm-overlay, #tr-summary-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(5px); z-index: 2147483647;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Roboto', -apple-system, 'Segoe UI', sans-serif;
+            animation: tr-cd-fade-in .2s ease-out;
+        }
+        .tr-confirm-box {
+            background: rgba(254,247,255,0.98);
+            border: 1px solid rgba(255,255,255,0.7);
+            border-radius: 24px; width: 90vw; max-width: 420px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+            padding: 24px; animation: tr-modal-in .25s cubic-bezier(.2,0,0,1);
+        }
+        .tr-confirm-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .tr-confirm-icon { font-size: 28px; }
+        .tr-confirm-title { font-size: 17px; font-weight: 700; color: #1A1C1E; }
+        .tr-confirm-body { font-size: 13.5px; color: #475569; line-height: 1.5; margin-bottom: 20px; }
+        .tr-confirm-footer { display: flex; justify-content: flex-end; gap: 10px; }
 
-    .tr-summary-box {
-        background: rgba(254,247,255,0.98);
-        border: 1px solid rgba(255,255,255,0.7);
-        border-radius: 28px; width: 90vw; max-width: 520px; max-height: 85vh;
-        display: flex; flex-direction: column;
-        box-shadow: 0 28px 70px rgba(0,0,0,0.4);
-        animation: tr-modal-in .3s cubic-bezier(.2,0,0,1); overflow: hidden;
-    }
-    .tr-summary-header { padding: 22px 24px 14px; text-align: center; }
-    .tr-summary-icon { font-size: 38px; margin-bottom: 6px; }
-    .tr-summary-title { font-size: 19px; font-weight: 700; color: #1A1C1E; }
-    .tr-summary-sub { font-size: 12.5px; color: #64748B; margin-top: 4px; }
-    .tr-summary-stats {
-        display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-        padding: 0 20px 14px;
-    }
-    .tr-summary-stat-card {
-        padding: 12px 8px; border-radius: 16px; text-align: center;
-        background: rgba(255,255,255,0.75); border: 1px solid rgba(226,232,240,0.8);
-    }
-    .tr-summary-stat-val { font-size: 22px; font-weight: 800; line-height: 1.2; }
-    .tr-summary-stat-lbl { font-size: 11px; font-weight: 600; color: #64748B; margin-top: 2px; }
-    .stat-success .tr-summary-stat-val { color: #16A34A; }
-    .stat-skipped .tr-summary-stat-val { color: #D97706; }
-    .stat-total .tr-summary-stat-val { color: #0B57D0; }
+        .tr-summary-box {
+            background: rgba(254,247,255,0.98);
+            border: 1px solid rgba(255,255,255,0.7);
+            border-radius: 28px; width: 90vw; max-width: 520px; max-height: 85vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 28px 70px rgba(0,0,0,0.4);
+            animation: tr-modal-in .3s cubic-bezier(.2,0,0,1); overflow: hidden;
+        }
+        .tr-summary-header { padding: 22px 24px 14px; text-align: center; }
+        .tr-summary-icon { font-size: 38px; margin-bottom: 6px; }
+        .tr-summary-title { font-size: 19px; font-weight: 700; color: #1A1C1E; }
+        .tr-summary-sub { font-size: 12.5px; color: #64748B; margin-top: 4px; }
+        .tr-summary-stats {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+            padding: 0 20px 14px;
+        }
+        .tr-summary-stat-card {
+            padding: 12px 8px; border-radius: 16px; text-align: center;
+            background: rgba(255,255,255,0.75); border: 1px solid rgba(226,232,240,0.8);
+        }
+        .tr-summary-stat-val { font-size: 22px; font-weight: 800; line-height: 1.2; }
+        .tr-summary-stat-lbl { font-size: 11px; font-weight: 600; color: #64748B; margin-top: 2px; }
+        .stat-success .tr-summary-stat-val { color: #16A34A; }
+        .stat-skipped .tr-summary-stat-val { color: #D97706; }
+        .stat-total .tr-summary-stat-val { color: #0B57D0; }
 
-    .tr-summary-list-title {
-        padding: 6px 22px; font-size: 12px; font-weight: 700; color: #475569;
-        text-transform: uppercase; letter-spacing: 0.5px;
-    }
-    .tr-summary-list {
-        flex: 1; overflow-y: auto; padding: 4px 20px 14px;
-        display: flex; flex-direction: column; gap: 8px;
-        max-height: 240px;
-    }
-    .tr-summary-item {
-        display: flex; align-items: flex-start; gap: 10px;
-        padding: 9px 12px; border-radius: 12px;
-        background: rgba(255,255,255,0.85); border: 1px solid rgba(226,232,240,0.8);
-    }
-    .tr-summary-item-idx {
-        font-size: 11px; font-weight: 700; color: #94A3B8;
-        min-width: 18px; padding-top: 2px;
-    }
-    .tr-summary-item-content { flex: 1; min-width: 0; }
-    .tr-summary-item-title {
-        font-size: 12.5px; font-weight: 600; color: #1E293B;
-        line-height: 1.35; word-break: break-word;
-    }
-    .tr-summary-item-reason { margin-top: 4px; }
-    .tr-summary-badge {
-        display: inline-block; font-size: 10.5px; font-weight: 600;
-        padding: 2px 8px; border-radius: 100px;
-    }
-    .badge-teacher { background: #F5F3FF; color: #7C3AED; border: 1px solid #DDD6FE; }
-    .badge-read { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
-    .badge-warn { background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; }
-    .badge-general { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; }
+        .tr-summary-list-title {
+            padding: 6px 22px; font-size: 12px; font-weight: 700; color: #475569;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .tr-summary-list {
+            flex: 1; overflow-y: auto; padding: 4px 20px 14px;
+            display: flex; flex-direction: column; gap: 8px;
+            max-height: 240px;
+        }
+        .tr-summary-item {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 9px 12px; border-radius: 12px;
+            background: rgba(255,255,255,0.85); border: 1px solid rgba(226,232,240,0.8);
+        }
+        .tr-summary-item-idx {
+            font-size: 11px; font-weight: 700; color: #94A3B8;
+            min-width: 18px; padding-top: 2px;
+        }
+        .tr-summary-item-content { flex: 1; min-width: 0; }
+        .tr-summary-item-title {
+            font-size: 12.5px; font-weight: 600; color: #1E293B;
+            line-height: 1.35; word-break: break-word;
+        }
+        .tr-summary-item-reason { margin-top: 4px; }
+        .tr-summary-badge {
+            display: inline-block; font-size: 10.5px; font-weight: 600;
+            padding: 2px 8px; border-radius: 100px;
+        }
+        .badge-teacher { background: #F5F3FF; color: #7C3AED; border: 1px solid #DDD6FE; }
+        .badge-read { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
+        .badge-warn { background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; }
+        .badge-general { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; }
 
-    .tr-summary-empty {
-        padding: 20px; text-align: center; color: #059669; font-size: 13px; font-weight: 500;
-        background: #ECFDF5; margin: 8px 20px; border-radius: 14px; border: 1px solid #A7F3D0;
-    }
-    .tr-summary-footer {
-        padding: 14px 20px; border-top: 1px solid rgba(226,232,240,0.8);
-        display: flex; justify-content: space-between; align-items: center;
-        background: rgba(248,250,252,0.8);
-    }
-    `;
+        .tr-summary-empty {
+            padding: 20px; text-align: center; color: #059669; font-size: 13px; font-weight: 500;
+            background: #ECFDF5; margin: 8px 20px; border-radius: 14px; border: 1px solid #A7F3D0;
+        }
+        .tr-summary-footer {
+            padding: 14px 20px; border-top: 1px solid rgba(226,232,240,0.8);
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(248,250,252,0.8);
+        }
+
+        /* ===== MATERIAL 3 VIEW COUNT SCRAPE POPUP OVERLAY ===== */
+        #tr-view-scrape-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 2147483645;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            animation: tr-cd-fade-in 0.25s ease-out;
+            padding: 20px;
+            box-sizing: border-box;
+            transition: opacity 0.25s ease;
+        }
+        #tr-view-scrape-overlay.tr-peek-mode {
+            pointer-events: none;
+            opacity: 0.12;
+        }
+        .tr-vpop-modal {
+            background: #FFFFFF;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-radius: 28px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 320px;
+            color: #1A1C1E;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            animation: tr-modal-in 0.3s cubic-bezier(0.2, 0, 0, 1);
+            position: relative;
+        }
+        .tr-vpop-book-area {
+            padding: 32px 24px 26px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        .tr-vpop-book-wrap {
+            width: 72px;
+            height: 72px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #E8F0FE 0%, #D3E3FD 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 4px auto 18px;
+            box-shadow: 0 8px 24px rgba(11, 87, 208, 0.14);
+            position: relative;
+        }
+        .tr-vpop-spinner-ring {
+            position: absolute;
+            inset: -12px;
+            border-radius: 50%;
+            border: 2.5px solid rgba(11, 87, 208, 0.12);
+            border-top: 3px solid #0B57D0;
+            border-right: 3px solid #388af6;
+            border-bottom: 3px solid transparent;
+            pointer-events: none;
+            animation: tr-vpop-ring-spin 1.8s linear infinite;
+            filter: drop-shadow(0 2px 6px rgba(11, 87, 208, 0.22));
+        }
+        @keyframes tr-vpop-ring-spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+        @keyframes tr-m3-float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-6px);
+            }
+        }
+        .tr-vpop-book-svg {
+            animation: tr-m3-float 3s ease-in-out infinite;
+            transform-origin: center center;
+        }
+        .tr-vpop-counter-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        .tr-vpop-counter-label {
+            font-size: 11.5px;
+            font-weight: 700;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            color: #5E6368;
+            margin-bottom: 2px;
+        }
+        .tr-vpop-counter-box {
+            position: relative;
+            display: inline-flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 6px;
+            min-height: 54px;
+        }
+        .tr-vpop-counter-num {
+            font-size: 52px;
+            font-weight: 800;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+            color: #0B57D0;
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s ease;
+        }
+        .tr-vpop-counter-num.tr-bump {
+            transform: scale(1.22);
+            color: #16A34A !important;
+        }
+        .tr-vpop-counter-unit {
+            font-size: 15px;
+            font-weight: 600;
+            color: #5E6368;
+        }
+        .tr-vpop-plus-one {
+            position: absolute;
+            top: -14px;
+            right: -34px;
+            color: #16A34A;
+            font-size: 28px;
+            font-weight: 900;
+            line-height: 1;
+            pointer-events: none;
+            z-index: 10;
+            animation: tr-plus-float 1.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes tr-plus-float {
+            0% {
+                opacity: 0;
+                transform: translateY(12px) scale(0.6);
+                filter: drop-shadow(0 0 2px rgba(22, 163, 74, 0.4));
+            }
+            25% {
+                opacity: 1;
+                transform: translateY(-2px) scale(1.3);
+                filter: drop-shadow(0 0 12px rgba(22, 163, 74, 0.8));
+            }
+            60% {
+                opacity: 1;
+                transform: translateY(-20px) scale(1.1);
+                filter: drop-shadow(0 0 10px rgba(22, 163, 74, 0.6));
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-38px) scale(0.9);
+                filter: drop-shadow(0 0 0 transparent);
+            }
+        }
+        .tr-vpop-status-card {
+            width: 100%;
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 18px;
+            padding: 12px 16px;
+            margin-top: 14px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        .tr-vpop-book-title {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: #1E293B;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .tr-vpop-status-text {
+            font-size: 12px;
+            color: #0B57D0;
+            font-weight: 500;
+            margin-top: 4px;
+        }
+        .tr-vpop-bottom {
+            display: none !important;
+            padding: 16px 22px 20px;
+            background: #FAFAFA;
+            border-top: 1px solid #F1F5F9;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .tr-vpop-bottom .tr-stepper-track-wrap {
+            height: 8px;
+            background: #E2E8F0;
+            border-radius: 100px;
+            overflow: hidden;
+        }
+        .tr-vpop-bottom .tr-stepper-active-line {
+            height: 100%;
+            background: #0B57D0;
+            border-radius: 100px;
+            transition: width 0.35s cubic-bezier(0.2, 0, 0, 1);
+        }
+        .tr-vpop-bottom .tr-stepper-meta {
+            display: flex;
+            justify-content: flex-end;
+        }
+        .tr-vpop-bottom .tr-stepper-tag {
+            color: #0B57D0;
+            font-size: 11.5px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            text-shadow: none;
+        }
+        .tr-vpop-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 6px;
+        }
+        .tr-vpop-btn-skip, .tr-vpop-btn-stop {
+            flex: 1;
+            padding: 10px 18px;
+            border-radius: 100px;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            border: none;
+        }
+        .tr-vpop-btn-skip {
+            background: #FFFFFF;
+            border: 1px solid #CBD5E1 !important;
+            color: #334155;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .tr-vpop-btn-skip:hover:not(:disabled) {
+            background: #F1F5F9;
+            color: #0F172A;
+        }
+        .tr-vpop-btn-stop {
+            background: #FFDAD6;
+            border: 1px solid rgba(186, 26, 26, 0.25) !important;
+            color: #BA1A1A;
+        }
+        .tr-vpop-btn-stop:hover:not(:disabled) {
+            background: #FFCDD2;
+            color: #990000;
+        }
+
+        /* ==========================================================================
+        MATERIAL 3 DIRECTION DIALOG & START BOOK GRID DIALOG
+        ========================================================================== */
+        #tr-direction-overlay, #tr-grid-start-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            z-index: 2147483647; display: flex; align-items: center; justify-content: center;
+            font-family: 'Roboto', -apple-system, 'Segoe UI', sans-serif;
+            animation: tr-cd-fade-in .2s ease-out;
+        }
+        .tr-direction-box {
+            background: #FFFFFF;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-radius: 28px; width: 92vw; max-width: 480px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.22), 0 4px 16px rgba(0,0,0,0.06);
+            animation: tr-modal-in .3s cubic-bezier(.2,0,0,1);
+            overflow: hidden; display: flex; flex-direction: column;
+        }
+        .tr-direction-header {
+            padding: 24px 24px 16px; text-align: center;
+        }
+        .tr-direction-icon {
+            width: 56px; height: 56px; border-radius: 50%;
+            background: #E8F0FE; display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 12px;
+        }
+        .tr-direction-title {
+            font-size: 19px; font-weight: 700; color: #1A1C1E;
+        }
+        .tr-direction-sub {
+            font-size: 13px; color: #64748B; margin-top: 5px; line-height: 1.45;
+        }
+        .tr-direction-options {
+            padding: 6px 18px 14px; display: flex; flex-direction: column; gap: 10px;
+        }
+        .tr-direction-card {
+            display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+            border-radius: 18px; background: #F8FAFD;
+            border: 1.5px solid #E2E8F0; cursor: pointer;
+            transition: all .2s cubic-bezier(0.2, 0, 0, 1);
+        }
+        .tr-direction-card:hover {
+            background: #FFFFFF; border-color: #0B57D0;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(11,87,208,0.14);
+        }
+        .tr-direction-card:active {
+            transform: scale(0.98);
+        }
+        .tr-direction-card-icon {
+            font-size: 26px; flex-shrink: 0; width: 36px; height: 36px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .tr-direction-card-body {
+            flex: 1; min-width: 0;
+        }
+        .tr-direction-card-title-row {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 3px;
+        }
+        .tr-direction-card-title {
+            font-size: 14.5px; font-weight: 700; color: #1E293B;
+        }
+        .tr-direction-badge {
+            font-size: 10.5px; font-weight: 700; color: #0B57D0;
+            background: #E8F0FE; padding: 2px 8px; border-radius: 100px;
+            letter-spacing: 0.3px;
+        }
+        .tr-direction-badge-sec {
+            font-size: 10.5px; font-weight: 700; color: #475569;
+            background: #F1F5F9; padding: 2px 8px; border-radius: 100px;
+        }
+        .tr-direction-card-desc {
+            font-size: 12px; color: #64748B; line-height: 1.4;
+        }
+        .tr-direction-card-arrow {
+            font-size: 18px; color: #94A3B8; font-weight: bold; flex-shrink: 0;
+            transition: transform .2s, color .2s;
+        }
+        .tr-direction-card:hover .tr-direction-card-arrow {
+            transform: translateX(3px); color: #0B57D0;
+        }
+        .tr-direction-footer {
+            padding: 12px 24px 16px; border-top: 1px solid #F1F5F9;
+            display: flex; justify-content: flex-end; background: #FAFAFA;
+        }
+
+        /* Start Book Grid Dialog */
+        .tr-grid-start-box {
+            background: #FFFFFF;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-radius: 28px; width: 92vw; max-width: 660px; max-height: 88vh;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.24), 0 4px 16px rgba(0,0,0,0.06);
+            animation: tr-modal-in .3s cubic-bezier(.2,0,0,1);
+            overflow: hidden; display: flex; flex-direction: column;
+        }
+        .tr-grid-start-header {
+            padding: 20px 22px 14px; display: flex; align-items: center; gap: 14px;
+            border-bottom: 1px solid #F1F5F9; background: #FAFAFA;
+        }
+        .tr-grid-start-icon {
+            width: 44px; height: 44px; border-radius: 14px;
+            background: #E8F0FE; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .tr-grid-start-title {
+            font-size: 17px; font-weight: 700; color: #1E293B;
+        }
+        .tr-grid-start-sub {
+            font-size: 12px; color: #64748B; margin-top: 2px;
+        }
+        .tr-grid-start-search-wrap {
+            padding: 12px 20px 8px; background: #FFFFFF;
+        }
+        .tr-grid-start-search-wrap input {
+            width: 100%; padding: 10px 16px; border-radius: 100px;
+            border: 1.5px solid #CBD5E1; font-family: inherit; font-size: 13px;
+            outline: none; background: #F8FAFD; box-sizing: border-box;
+            transition: border-color .15s, box-shadow .15s, background .15s;
+        }
+        .tr-grid-start-search-wrap input:focus {
+            border-color: #0B57D0; background: #FFFFFF;
+            box-shadow: 0 0 0 3px rgba(11,87,208,0.15);
+        }
+        .tr-grid-start-container {
+            flex: 1; overflow-y: auto; padding: 12px 20px;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+            gap: 12px; min-height: 220px; max-height: 420px;
+        }
+        .tr-book-square {
+            aspect-ratio: 1; border-radius: 18px; background: #F8FAFD;
+            border: 1.5px solid #E2E8F0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; padding: 8px 6px;
+            cursor: pointer; position: relative; transition: all .2s cubic-bezier(0.2, 0, 0, 1);
+            text-align: center; user-select: none; box-sizing: border-box;
+        }
+        .tr-book-square:hover {
+            background: #FFFFFF; border-color: #0B57D0;
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(11,87,208,0.18);
+        }
+        .tr-book-square:active {
+            transform: scale(0.96);
+        }
+        .tr-book-square-num {
+            position: absolute; top: 6px; left: 8px;
+            font-size: 10px; font-weight: 700; color: #0B57D0;
+            background: #E8F0FE; padding: 1px 6px; border-radius: 100px;
+        }
+        .tr-book-square-icon {
+            margin: 6px 0 4px; display: flex; align-items: center; justify-content: center;
+        }
+        .tr-book-square-title {
+            font-size: 11px; font-weight: 600; color: #1E293B;
+            line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis;
+            word-break: break-word; padding: 0 4px;
+        }
+        .tr-grid-start-footer {
+            padding: 12px 20px 16px; border-top: 1px solid #F1F5F9;
+            display: flex; align-items: center; justify-content: space-between;
+            background: #FAFAFA; gap: 12px;
+        }
+        .tr-grid-start-preview {
+            flex: 1; font-size: 12px; color: #475569; font-weight: 500;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .tr-grid-start-actions {
+            display: flex; gap: 8px; flex-shrink: 0;
+        }
+        `;
         document.head.appendChild(style);
     };
 
@@ -2657,8 +3283,8 @@
         const header = document.createElement('div');
         header.className = 'tr-header';
         header.innerHTML = `
-                <img class="tr-logo" src="${LOGO_DATA_URL}" alt="Logo AutoEbook">
-                <div class="tr-title">Auto Ebook<span class="tr-subtitle">By Em Wizi With Love <3</span></div>`;
+                    <img class="tr-logo" src="${LOGO_DATA_URL}" alt="Logo AutoEbook">
+                    <div class="tr-title">Auto Ebook<span class="tr-subtitle">By Em Wizi With Love <3</span></div>`;
 
         const collapseBtn = document.createElement('button');
         collapseBtn.className = 'tr-collapse';
@@ -2672,33 +3298,33 @@
         const etaWrap = document.createElement('div');
         etaWrap.className = 'tr-eta';
         etaWrap.innerHTML = `
-                <div class="tr-eta-row eta-main">
-                    <span class="tr-eta-label">${ICONS.hourglass}<span>Sách hiện tại</span></span>
-                    <span class="tr-eta-value" id="eta-current">--</span>
-                </div>
-                <div class="tr-eta-row">
-                    <span class="tr-eta-label">${ICONS.flag}<span>Còn lại cả danh sách</span></span>
-                    <span class="tr-eta-value" id="eta-total">--</span>
-                </div>
-                <div class="tr-eta-row">
-                    <span class="tr-eta-label">${ICONS.clock}<span>Dự kiến xong lúc</span></span>
-                    <span class="tr-eta-value" id="eta-finish">--</span>
-                </div>
-                <div class="tr-eta-row">
-                    <span class="tr-eta-label">${ICONS.clock}<span>Tốc độ TB (thực tế)</span></span>
-                    <span class="tr-eta-value" id="eta-speed">--</span>
-                </div>`;
+                    <div class="tr-eta-row eta-main">
+                        <span class="tr-eta-label">${ICONS.hourglass}<span>Sách hiện tại</span></span>
+                        <span class="tr-eta-value" id="eta-current">--</span>
+                    </div>
+                    <div class="tr-eta-row">
+                        <span class="tr-eta-label">${ICONS.flag}<span>Còn lại cả danh sách</span></span>
+                        <span class="tr-eta-value" id="eta-total">--</span>
+                    </div>
+                    <div class="tr-eta-row">
+                        <span class="tr-eta-label">${ICONS.clock}<span>Dự kiến xong lúc</span></span>
+                        <span class="tr-eta-value" id="eta-finish">--</span>
+                    </div>
+                    <div class="tr-eta-row">
+                        <span class="tr-eta-label">${ICONS.clock}<span>Tốc độ TB (thực tế)</span></span>
+                        <span class="tr-eta-value" id="eta-speed">--</span>
+                    </div>`;
 
         applyAnimOff();
 
         const sliderStepper = document.createElement('div');
         sliderStepper.className = 'tr-slider-stepper';
         sliderStepper.innerHTML = `
-                <div class="tr-stepper-track-wrap">
-                    <div class="tr-stepper-active-line" id="tr-stepper-fill"></div>
-                </div>
-                <div class="tr-stepper-meta"><span class="tr-stepper-tag" id="tr-stepper-tag">0 / 0 cuốn · 0%</span></div>
-            `;
+                    <div class="tr-stepper-track-wrap">
+                        <div class="tr-stepper-active-line" id="tr-stepper-fill"></div>
+                    </div>
+                    <div class="tr-stepper-meta"><span class="tr-stepper-tag" id="tr-stepper-tag">0 / 0 cuốn · 0%</span></div>
+                `;
 
         const btnAutoAll = document.createElement('button');
         btnAutoAll.className = 'tr-btn tr-btn-primary';
@@ -2802,6 +3428,127 @@
         };
     };
 
+    const createOrShowViewScrapePopup = (ui) => {
+        let overlay = document.getElementById('tr-view-scrape-overlay');
+        const loopTotal = parseInt(localStorage.getItem(KEY_VIEW_LOOP_TOTAL) || '1', 10);
+        const loopCurrent = parseInt(localStorage.getItem(KEY_VIEW_LOOP_CURRENT) || '1', 10);
+        const loopText = loopTotal > 1 ? `Vòng ${loopCurrent}/${loopTotal}` : 'Vòng 1/1';
+        const successCount = parseInt(localStorage.getItem(KEY_READ_SUCCESS_COUNT) || '0', 10);
+
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'tr-view-scrape-overlay';
+            overlay.innerHTML = `
+                    <div class="tr-vpop-modal">
+                        <div class="tr-vpop-book-area">
+                            <div class="tr-vpop-book-wrap">
+                                <div class="tr-vpop-spinner-ring"></div>
+                                <svg viewBox="0 0 48 48" width="38" height="38" fill="none" class="tr-vpop-book-svg">
+                                    <path d="M8 38V10C8 8.89543 8.89543 8 10 8H20C22.2091 8 24 9.79086 24 12V40C24 38.8954 23.1046 38 22 38H10C8.89543 38 8 38 8 38Z" fill="#0B57D0"/>
+                                    <path d="M40 38V10C40 8.89543 39.1046 8 38 8H28C25.7909 8 24 9.79086 24 12V40C24 38.8954 24.8954 38 26 38H38C39.1046 38 40 38 40 38Z" fill="#1A73E8"/>
+                                    <path d="M13 15H19M13 21H19M13 27H19M13 33H19" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+                                    <path d="M29 15H35M29 21H35M29 27H35M29 33H35" stroke="#E8F0FE" stroke-width="2" stroke-linecap="round"/>
+                                    <path d="M22 8V24L24 22L26 24V8" fill="#FBBC04"/>
+                                </svg>
+                            </div>
+
+                            <div class="tr-vpop-counter-wrap">
+                                <div class="tr-vpop-counter-box" id="tr-vpop-counter-box">
+                                    <span class="tr-vpop-counter-num" id="tr-vpop-counter-num">${successCount}</span>
+                                    <span class="tr-vpop-counter-unit">cuốn</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tr-vpop-bottom" style="display: none !important;">
+                            <div class="tr-stepper-track-wrap">
+                                <div class="tr-stepper-active-line" id="tr-vpop-stepper-fill"></div>
+                            </div>
+                            <div class="tr-stepper-meta">
+                                <span class="tr-vpop-stepper-tag" id="tr-vpop-stepper-tag">0 / 0 cuốn · 0%</span>
+                            </div>
+                            <div class="tr-vpop-actions">
+                                <button type="button" class="tr-vpop-btn-skip" id="tr-vpop-btn-skip">Bỏ qua cuốn này</button>
+                                <button type="button" class="tr-vpop-btn-stop" id="tr-vpop-btn-stop">Dừng tự động</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            document.body.appendChild(overlay);
+
+            const skipBtn = overlay.querySelector('#tr-vpop-btn-skip');
+            if (skipBtn) {
+                skipBtn.addEventListener('click', () => {
+                    if (ui && ui.btnSkip) ui.btnSkip.click();
+                });
+            }
+
+            const stopBtn = overlay.querySelector('#tr-vpop-btn-stop');
+            if (stopBtn) {
+                stopBtn.addEventListener('click', () => {
+                    if (ui && ui.btnStop) ui.btnStop.click();
+                });
+            }
+        } else {
+            const numEl = overlay.querySelector('#tr-vpop-counter-num');
+            if (numEl) numEl.textContent = successCount.toString();
+        }
+        return overlay;
+    };
+
+    const closeViewScrapePopup = () => {
+        const overlay = document.getElementById('tr-view-scrape-overlay');
+        if (overlay) overlay.remove();
+    };
+
+    const updateViewPopupProgress = (index, total, pct, loopCurrent, loopTotal) => {
+        const overlay = document.getElementById('tr-view-scrape-overlay');
+        if (!overlay) return;
+        const fill = overlay.querySelector('#tr-vpop-stepper-fill');
+        if (fill) fill.style.width = pct + '%';
+        const tag = overlay.querySelector('#tr-vpop-stepper-tag');
+        const loopText = loopTotal > 1 ? ` · Vòng ${loopCurrent}/${loopTotal}` : '';
+        if (tag) tag.innerText = index + ' / ' + total + ' cuốn · ' + pct + '%' + loopText;
+        const loopBadge = overlay.querySelector('#tr-vpop-loop-badge');
+        if (loopBadge && loopTotal > 1) loopBadge.textContent = `Vòng ${loopCurrent}/${loopTotal}`;
+    };
+
+    const updateViewPopupStatus = (statusText) => {
+        const overlay = document.getElementById('tr-view-scrape-overlay');
+        if (!overlay || !statusText) return;
+        const stEl = overlay.querySelector('#tr-vpop-status-text');
+        if (stEl) stEl.textContent = statusText;
+    };
+
+    const updateViewPopupBookTitle = (bookTitle) => {
+        const overlay = document.getElementById('tr-view-scrape-overlay');
+        if (!overlay || !bookTitle) return;
+        const cleanTitle = String(bookTitle).replace(/\s*\d*\s*lượt\s*xem.*$/i, '').trim();
+        const btEl = overlay.querySelector('#tr-vpop-book-title');
+        if (btEl) btEl.textContent = '📖 ' + (cleanTitle || bookTitle);
+    };
+
+    const showViewPopupPlusOne = (newCount) => {
+        const overlay = document.getElementById('tr-view-scrape-overlay');
+        if (!overlay) return;
+        const box = overlay.querySelector('#tr-vpop-counter-box');
+        const numEl = overlay.querySelector('#tr-vpop-counter-num');
+        if (numEl) {
+            numEl.textContent = newCount.toString();
+            numEl.classList.remove('tr-bump');
+            void numEl.offsetWidth;
+            numEl.classList.add('tr-bump');
+            setTimeout(() => numEl.classList.remove('tr-bump'), 450);
+        }
+        if (box) {
+            const badge = document.createElement('div');
+            badge.className = 'tr-vpop-plus-one';
+            badge.textContent = '+1';
+            box.appendChild(badge);
+            setTimeout(() => badge.remove(), 1300);
+        }
+    };
+
     const updateProgress = (ui, index, total, detailText = '') => {
         const pct = total > 0 ? Math.min(100, Math.round((index / total) * 100)) : 0;
         if (ui.stepperFill) ui.stepperFill.style.width = pct + '%';
@@ -2813,6 +3560,10 @@
 
         if (ui.stepperTag) ui.stepperTag.innerText = index + ' / ' + total + ' cuốn · ' + pct + '%' + loopText;
         if (detailText && ui.stepperText) ui.stepperText.innerText = detailText;
+
+        if (isViewMode) {
+            updateViewPopupProgress(index, total, pct, loopCurrent, loopTotal);
+        }
     };
 
     const updateETA = (ui, index, total, currentStageMs = 0) => {
@@ -2842,6 +3593,7 @@
 
     const setNormalMode = (ui) => {
         disablePageBlocker();
+        closeViewScrapePopup();
         ui.btnRead.style.display = 'flex';
         ui.btnAutoAll.style.display = 'flex';
         ui.btnScan.style.display = 'flex';
@@ -2884,8 +3636,24 @@
         const updateStatus = (text, type = 'info') => {
             const cleanText = String(text ?? '').replace(/^\s*\[AutoEbooks\]\s*/, '');
             const taggedText = `${APP_TAG} ${cleanText}`;
-            console.log(taggedText);
+            
+            // Chỉ hiện trong Console các thông tin thực sự cần thiết (Lỗi, Cảnh báo, Kết quả quan trọng)
+            if (type === 'error') {
+                console.error(taggedText);
+            } else if (type === 'warn') {
+                console.warn(taggedText);
+            } else if (type === 'success') {
+                // Lọc bỏ các bước phụ (tải bìa, đóng sách) để console luôn gọn gàng
+                const isMinor = /tải xong bìa|đóng sách/i.test(cleanText);
+                if (!isMinor) {
+                    console.log(taggedText);
+                }
+            }
+
             if (ui.stepperText) ui.stepperText.innerText = taggedText;
+            if (localStorage.getItem(KEY_VIEW_COUNT_MODE) === 'true') {
+                updateViewPopupStatus(cleanText);
+            }
             if (type === 'error') {
                 showErrorAlert(taggedText);
             }
@@ -2969,7 +3737,7 @@
         // Lúc nào vào web lần đầu (khi chưa chạy auto) cũng tự động tải lại data pack mới nhất từ GitHub
         if (!isActive && !isScanning) {
             setTimeout(() => {
-                fetchBookPackFromGithub(updateStatus).catch(() => {});
+                fetchBookPackFromGithub(updateStatus).catch(() => { });
             }, 600);
         }
 
@@ -2980,6 +3748,9 @@
             setRunningMode(ui, true);
             ui.btnSkip.disabled = true;
             ui.panel.classList.add('tr-panel-expanded');
+            if (localStorage.getItem(KEY_VIEW_COUNT_MODE) === 'true') {
+                createOrShowViewScrapePopup(ui);
+            }
             const targetLimitInit = parseInt(localStorage.getItem(KEY_TARGET_COUNT) || '0', 10);
             const currentSuccessInit = parseInt(localStorage.getItem(KEY_READ_SUCCESS_COUNT) || '0', 10);
             const totalForProgress = targetLimitInit > 0 ? targetLimitInit : list.length;
@@ -3051,6 +3822,9 @@
                     ? ' Mục tiêu: ' + currentSuccess + '/' + targetLimit + ' cuốn (Đang duyệt #' + (index + 1) + ') — "' + shortTitle + '"'
                     : ' Đang xử lý cuốn ' + (index + 1) + '/' + list.length + ' — "' + shortTitle + '"';
                 updateProgress(ui, currentForETA, totalTargetForETA, progText);
+                if (localStorage.getItem(KEY_VIEW_COUNT_MODE) === 'true') {
+                    updateViewPopupBookTitle(currentBook.title);
+                }
 
                 const addSkippedReason = (reason) => {
                     let skippedList = JSON.parse(localStorage.getItem(KEY_SKIPPED_DETAILS) || '[]');
@@ -3159,6 +3933,10 @@
                     if (viewCountConfirmed) {
                         currentSuccess++;
                         localStorage.setItem(KEY_READ_SUCCESS_COUNT, currentSuccess.toString());
+                        if (viewCountMode) {
+                            showViewPopupPlusOne(currentSuccess);
+                            await sleep(1200);
+                        }
                     }
                 }
                 catch (err) {
@@ -3423,13 +4201,16 @@
                 let bookList = [];
 
                 if (mode === '1') {
-                    bookList = raw.filter(b => !history.includes(b.url)).reverse();
-                    if (bookList.length === 0) {
+                    const unreadBooks = raw.filter(b => !history.includes(b.url));
+                    if (unreadBooks.length === 0) {
                         updateStatus(' Tất cả sách đều đã đọc rồi! Không còn sách chưa đọc.', 'success');
                         setNormalMode(ui); return;
                     }
+                    const dir = await showDirectionDialog(unreadBooks);
+                    if (!dir) { updateStatus('Đã huỷ', 'warn'); setNormalMode(ui); return; }
+                    bookList = dir.books;
                     localStorage.setItem(KEY_TARGET_COUNT, '0');
-                    updateStatus(' Tìm thấy ' + bookList.length + '/' + raw.length + ' cuốn chưa đọc (Đọc từ dưới lên )', 'info');
+                    updateStatus(' Tìm thấy ' + bookList.length + '/' + raw.length + ' cuốn chưa đọc (' + dir.label + ')', 'info');
                     await sleep(800);
                 } else if (mode === '2') {
                     const unreadBooks = raw.filter(b => !history.includes(b.url));
@@ -3440,20 +4221,24 @@
                     const n = await showNumberInputDialog(unreadBooks.length);
                     if (!n) { updateStatus('Đã huỷ', 'warn'); setNormalMode(ui); return; }
                     localStorage.setItem(KEY_TARGET_COUNT, n.toString());
-                    const reversed = unreadBooks.reverse();
-                    bookList = reversed.slice(0, n);
-                    const reserve = reversed.slice(n);
+                    const dir = await showDirectionDialog(unreadBooks);
+                    if (!dir) { updateStatus('Đã huỷ', 'warn'); setNormalMode(ui); return; }
+                    const ordered = dir.books;
+                    bookList = ordered.slice(0, n);
+                    const reserve = ordered.slice(n);
                     localStorage.setItem('TR_RESERVE_LIST', JSON.stringify(reserve));
-                    updateStatus(' Mục tiêu: Đọc đủ ' + n + ' cuốn sách', 'info');
+                    updateStatus(' Mục tiêu: Đọc đủ ' + n + ' cuốn sách (' + dir.label + ')', 'info');
                     await sleep(800);
                 } else if (mode === '4') {
                     const loops = await showLoopInputDialog(raw.length);
                     if (!loops) { updateStatus('Đã huỷ', 'warn'); setNormalMode(ui); return; }
                     localStorage.setItem(KEY_VIEW_LOOP_TOTAL, loops.toString());
                     localStorage.setItem(KEY_VIEW_LOOP_CURRENT, '1');
-                    bookList = raw.slice().reverse();
+                    const dir = await showDirectionDialog(raw);
+                    if (!dir) { updateStatus('Đã huỷ', 'warn'); setNormalMode(ui); return; }
+                    bookList = dir.books;
                     localStorage.setItem(KEY_TARGET_COUNT, '0');
-                    updateStatus(' Cào lượt đọc: ' + bookList.length + ' cuốn · ' + loops + ' vòng lặp', 'info');
+                    updateStatus(' Cào lượt đọc: ' + bookList.length + ' cuốn · ' + loops + ' vòng lặp (' + dir.label + ')', 'info');
                     await sleep(800);
                 } else {
                     updateStatus(' Mở bảng chọn sách...', 'info');
@@ -3463,7 +4248,12 @@
                     const autoMerged = mergeScanResults();
                     if (autoMerged > 0) { updateStatus(' Nạp ' + autoMerged + ' sách hoàn tất', 'info'); await sleep(600); }
 
-                    bookList = raw.filter(b => pickResult.selectedUrls.has(b.url));
+                    const candidate = raw.filter(b => pickResult.selectedUrls.has(b.url));
+                    if (candidate.length === 0) { updateStatus(' Chưa chọn sách nào', 'warn'); setNormalMode(ui); return; }
+
+                    const dir = await showDirectionDialog(candidate);
+                    if (!dir) { updateStatus('Đã huỷ', 'warn'); setNormalMode(ui); return; }
+                    bookList = dir.books;
                     if (pickResult.limit > 0 && bookList.length > pickResult.limit) bookList = bookList.slice(0, pickResult.limit);
                     localStorage.setItem(KEY_TARGET_COUNT, '0');
                 }
@@ -3478,6 +4268,9 @@
                 const countEst = targetVal > 0 ? targetVal : bookList.length;
                 const etaSec = countEst * getAvgSecPerBook();
                 updateProgress(ui, 0, countEst, ' Sẵn sàng ' + countEst + ' cuốn — dự kiến ' + fmtTime(etaSec));
+                if (mode === '4') {
+                    createOrShowViewScrapePopup(ui);
+                }
                 await sleep(1500);
                 if (isStopped()) return;
                 window.location.href = bookList[0].url;
@@ -3489,6 +4282,7 @@
 
         ui.btnStop.addEventListener('click', () => {
             disablePageBlocker();
+            closeViewScrapePopup();
             localStorage.removeItem(KEY_SKIP_CURRENT);
             localStorage.setItem(KEY_STOP, 'true');
             const isScanning = localStorage.getItem(KEY_SCAN_ACTIVE) === 'true';
