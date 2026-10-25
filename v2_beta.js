@@ -268,6 +268,7 @@
     const KEY_SKIP_COUNT = 'tr_skip_count';
     const KEY_TEACHER_COUNT = 'tr_teacher_count';
     const KEY_TARGET_COUNT = 'tr_target_count';
+    const KEY_VIEW_TARGET_VIEWS = 'tr_view_target_views';
     const KEY_READ_SUCCESS_COUNT = 'tr_read_success_count';
     const KEY_SKIPPED_DETAILS = 'tr_skipped_details';
     const KEY_PERF_MODE = 'tr_perf_mode';
@@ -2026,12 +2027,26 @@
         box.innerHTML = `
                     <div class="tr-num-header">
                         <div class="tr-num-icon"><svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#0B57D0" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg></div>
-                        <div class="tr-num-title">Số vòng lặp cào lượt đọc</div>
+                        <div class="tr-num-title">Chế độ cào lượt đọc</div>
                         <div class="tr-num-sub">Danh sách gồm <strong>${bookCount} cuốn sách</strong></div>
                     </div>
-                    <div class="tr-num-input-wrap">
-                        <input type="number" id="tr-loop-input" min="1" max="999" value="1" placeholder="Nhập số vòng lặp...">
-                        <div class="tr-num-hint">Nhập số vòng lặp lại (Ví dụ: 2 sẽ đọc hết danh sách rồi tự động đọc lại lần 2). Mặc định là 1 vòng.</div>
+                    <div style="display:flex;padding:0 20px;gap:8px;">
+                        <button type="button" id="tr-tab-target" style="flex:1;padding:10px 8px;border-radius:12px;border:1.5px solid #0B57D0;background:#E8F0FE;color:#0B57D0;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                            🎯 Mục tiêu lượt đọc
+                        </button>
+                        <button type="button" id="tr-tab-loop" style="flex:1;padding:10px 8px;border-radius:12px;border:1.5px solid #CBD5E1;background:#F8FAFC;color:#64748B;font-weight:600;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                            🔄 Số vòng lặp
+                        </button>
+                    </div>
+                    <div id="tr-panel-target" class="tr-num-input-wrap" style="padding-top:14px;">
+                        <label style="font-weight:600;font-size:13px;color:#333;margin-bottom:6px;display:block;">Số lượt đọc mục tiêu cần đạt</label>
+                        <input type="number" id="tr-target-views-input" min="1" max="99999" value="100" placeholder="Ví dụ: 100">
+                        <div class="tr-num-hint" style="margin-top:6px;">Tự động lặp lại qua các cuốn sách cho đến khi đủ số lượt view yêu cầu thì dừng.</div>
+                    </div>
+                    <div id="tr-panel-loop" class="tr-num-input-wrap" style="display:none;padding-top:14px;">
+                        <label style="font-weight:600;font-size:13px;color:#333;margin-bottom:6px;display:block;">Số vòng lặp danh sách</label>
+                        <input type="number" id="tr-loop-input" min="1" max="999" value="1" placeholder="Ví dụ: 2">
+                        <div class="tr-num-hint" style="margin-top:6px;">Đọc hết ${bookCount} cuốn rồi lặp lại đúng số vòng quy định.</div>
                     </div>
                     <div class="tr-num-footer">
                         <button class="tr-btn tr-btn-secondary tr-btn-sm" id="tr-loop-cancel">Huỷ</button>
@@ -2039,15 +2054,62 @@
                     </div>`;
         overlay.appendChild(box);
         document.body.appendChild(overlay);
-        const input = box.querySelector('#tr-loop-input');
-        input.focus(); input.select();
+
+        let activeTab = 'target';
+        const tabTarget = box.querySelector('#tr-tab-target');
+        const tabLoop = box.querySelector('#tr-tab-loop');
+        const panelTarget = box.querySelector('#tr-panel-target');
+        const panelLoop = box.querySelector('#tr-panel-loop');
+        const inputTarget = box.querySelector('#tr-target-views-input');
+        const inputLoop = box.querySelector('#tr-loop-input');
+
+        const selectTab = (tab) => {
+            activeTab = tab;
+            if (tab === 'target') {
+                tabTarget.style.borderColor = '#0B57D0';
+                tabTarget.style.background = '#E8F0FE';
+                tabTarget.style.color = '#0B57D0';
+                tabTarget.style.fontWeight = '700';
+                tabLoop.style.borderColor = '#CBD5E1';
+                tabLoop.style.background = '#F8FAFC';
+                tabLoop.style.color = '#64748B';
+                tabLoop.style.fontWeight = '600';
+                panelTarget.style.display = 'block';
+                panelLoop.style.display = 'none';
+                inputTarget.focus(); inputTarget.select();
+            } else {
+                tabLoop.style.borderColor = '#0B57D0';
+                tabLoop.style.background = '#E8F0FE';
+                tabLoop.style.color = '#0B57D0';
+                tabLoop.style.fontWeight = '700';
+                tabTarget.style.borderColor = '#CBD5E1';
+                tabTarget.style.background = '#F8FAFC';
+                tabTarget.style.color = '#64748B';
+                tabTarget.style.fontWeight = '600';
+                panelLoop.style.display = 'block';
+                panelTarget.style.display = 'none';
+                inputLoop.focus(); inputLoop.select();
+            }
+        };
+
+        tabTarget.addEventListener('click', () => selectTab('target'));
+        tabLoop.addEventListener('click', () => selectTab('loop'));
+
+        inputTarget.focus(); inputTarget.select();
         box.querySelector('#tr-loop-cancel').addEventListener('click', () => { overlay.remove(); resolve(null); });
         box.querySelector('#tr-loop-ok').addEventListener('click', () => {
-            const val = parseInt(input.value, 10);
-            if (!val || val < 1) { input.focus(); return; }
-            overlay.remove(); resolve(val);
+            if (activeTab === 'target') {
+                const targetVal = parseInt(inputTarget.value, 10);
+                if (!targetVal || targetVal < 1) { inputTarget.focus(); return; }
+                overlay.remove(); resolve({ loops: 999999, targetViews: targetVal });
+            } else {
+                const loopVal = parseInt(inputLoop.value, 10);
+                if (!loopVal || loopVal < 1) { inputLoop.focus(); return; }
+                overlay.remove(); resolve({ loops: loopVal, targetViews: 0 });
+            }
         });
-        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') box.querySelector('#tr-loop-ok').click(); });
+        inputTarget.addEventListener('keydown', (e) => { if (e.key === 'Enter') box.querySelector('#tr-loop-ok').click(); });
+        inputLoop.addEventListener('keydown', (e) => { if (e.key === 'Enter') box.querySelector('#tr-loop-ok').click(); });
         overlay.addEventListener('click', (e) => { if (e.target === overlay) { overlay.remove(); resolve(null); } });
     });
 
@@ -2906,16 +2968,7 @@
                 transform: rotate(360deg);
             }
         }
-        @keyframes tr-m3-float {
-            0%, 100% {
-                transform: translateY(0);
-            }
-            50% {
-                transform: translateY(-6px);
-            }
-        }
         .tr-vpop-book-svg {
-            animation: tr-m3-float 3s ease-in-out infinite;
             transform-origin: center center;
         }
         .tr-vpop-counter-wrap {
@@ -3700,6 +3753,7 @@
             localStorage.removeItem(KEY_VIEW_COUNT_MODE);
             localStorage.removeItem(KEY_VIEW_LOOP_TOTAL);
             localStorage.removeItem(KEY_VIEW_LOOP_CURRENT);
+            localStorage.removeItem(KEY_VIEW_TARGET_VIEWS);
             localStorage.removeItem(KEY_SCRAPE_PENDING);
             localStorage.removeItem(KEY_LIST);
             localStorage.removeItem(KEY_INDEX);
@@ -3752,9 +3806,10 @@
                 createOrShowViewScrapePopup(ui);
             }
             const targetLimitInit = parseInt(localStorage.getItem(KEY_TARGET_COUNT) || '0', 10);
+            const viewTargetInit = parseInt(localStorage.getItem(KEY_VIEW_TARGET_VIEWS) || '0', 10);
             const currentSuccessInit = parseInt(localStorage.getItem(KEY_READ_SUCCESS_COUNT) || '0', 10);
-            const totalForProgress = targetLimitInit > 0 ? targetLimitInit : list.length;
-            const currentForProgress = targetLimitInit > 0 ? currentSuccessInit : index;
+            const totalForProgress = viewTargetInit > 0 ? viewTargetInit : (targetLimitInit > 0 ? targetLimitInit : list.length);
+            const currentForProgress = (viewTargetInit > 0 || targetLimitInit > 0) ? currentSuccessInit : index;
             updateProgress(ui, currentForProgress, totalForProgress);
             updateETA(ui, currentForProgress, totalForProgress, 0);
 
@@ -3772,6 +3827,8 @@
                 ui.btnSkip.disabled = false;
 
                 const targetLimit = parseInt(localStorage.getItem(KEY_TARGET_COUNT) || '0', 10);
+                const viewTargetViews = parseInt(localStorage.getItem(KEY_VIEW_TARGET_VIEWS) || '0', 10);
+                const isViewMode = localStorage.getItem(KEY_VIEW_COUNT_MODE) === 'true';
                 let currentSuccess = parseInt(localStorage.getItem(KEY_READ_SUCCESS_COUNT) || '0', 10);
 
                 const finishAll = async () => {
@@ -3782,23 +3839,24 @@
                     localStorage.removeItem(KEY_VIEW_COUNT_MODE);
                     localStorage.removeItem(KEY_VIEW_LOOP_TOTAL);
                     localStorage.removeItem(KEY_VIEW_LOOP_CURRENT);
+                    localStorage.removeItem(KEY_VIEW_TARGET_VIEWS);
                     setNormalMode(ui);
 
                     const finalRead = parseInt(localStorage.getItem(KEY_READ_SUCCESS_COUNT) || '0', 10);
                     const skippedList = JSON.parse(localStorage.getItem(KEY_SKIPPED_DETAILS) || '[]');
-                    const totalTarget = targetLimit > 0 ? targetLimit : list.length;
+                    const totalTarget = viewTargetViews > 0 ? viewTargetViews : (targetLimit > 0 ? targetLimit : list.length);
                     const loopNote = loopTotal > 1 ? ` (${loopTotal} vòng lặp)` : '';
                     updateProgress(ui, totalTarget, totalTarget, ' Đã hoàn tất! Đã đọc: ' + finalRead + ' cuốn' + loopNote);
 
                     await showSummaryDialog({
-                        totalTarget: targetLimit,
+                        totalTarget: viewTargetViews > 0 ? viewTargetViews : targetLimit,
                         successCount: finalRead,
                         skippedList: skippedList,
                         totalProcessed: Math.min(index + 1, list.length)
                     });
                 };
 
-                if (targetLimit > 0 && currentSuccess >= targetLimit) {
+                if ((targetLimit > 0 && currentSuccess >= targetLimit) || (viewTargetViews > 0 && currentSuccess >= viewTargetViews)) {
                     await finishAll();
                     return;
                 }
@@ -3810,17 +3868,19 @@
 
                 const currentBook = list[index];
                 const bookStart = Date.now();
-                const totalTargetForETA = targetLimit > 0 ? targetLimit : list.length;
-                const currentForETA = targetLimit > 0 ? currentSuccess : index;
+                const totalTargetForETA = viewTargetViews > 0 ? viewTargetViews : (targetLimit > 0 ? targetLimit : list.length);
+                const currentForETA = (viewTargetViews > 0 || targetLimit > 0) ? currentSuccess : index;
                 const tickETA = setInterval(() => {
                     if (isStopped()) { clearInterval(tickETA); return; }
                     updateETA(ui, currentForETA, totalTargetForETA, Date.now() - bookStart);
                 }, 500);
 
                 const shortTitle = currentBook.title.length > 35 ? currentBook.title.slice(0, 35) + '...' : currentBook.title;
-                const progText = targetLimit > 0
-                    ? ' Mục tiêu: ' + currentSuccess + '/' + targetLimit + ' cuốn (Đang duyệt #' + (index + 1) + ') — "' + shortTitle + '"'
-                    : ' Đang xử lý cuốn ' + (index + 1) + '/' + list.length + ' — "' + shortTitle + '"';
+                const progText = viewTargetViews > 0
+                    ? ' Mục tiêu cào: ' + currentSuccess + '/' + viewTargetViews + ' lượt (Đang duyệt #' + (index + 1) + ') — "' + shortTitle + '"'
+                    : (targetLimit > 0
+                        ? ' Mục tiêu: ' + currentSuccess + '/' + targetLimit + ' cuốn (Đang duyệt #' + (index + 1) + ') — "' + shortTitle + '"'
+                        : ' Đang xử lý cuốn ' + (index + 1) + '/' + list.length + ' — "' + shortTitle + '"');
                 updateProgress(ui, currentForETA, totalTargetForETA, progText);
                 if (localStorage.getItem(KEY_VIEW_COUNT_MODE) === 'true') {
                     updateViewPopupBookTitle(currentBook.title);
@@ -4003,15 +4063,18 @@
                                 window.location.href = list[nextIdx].url;
                                 return;
                             } else {
-                                const isViewMode = localStorage.getItem(KEY_VIEW_COUNT_MODE) === 'true';
-                                if (isViewMode) {
+                                const viewTargetReached = isViewMode && viewTargetViews > 0 && currentSuccess >= viewTargetViews;
+                                if (isViewMode && !viewTargetReached) {
                                     const loopTotal = parseInt(localStorage.getItem(KEY_VIEW_LOOP_TOTAL) || '1', 10);
                                     const loopCurrent = parseInt(localStorage.getItem(KEY_VIEW_LOOP_CURRENT) || '1', 10);
                                     if (loopCurrent < loopTotal) {
                                         const nextLoop = loopCurrent + 1;
                                         localStorage.setItem(KEY_VIEW_LOOP_CURRENT, nextLoop.toString());
                                         localStorage.setItem(KEY_INDEX, '0');
-                                        updateStatus(` Hoàn thành vòng ${loopCurrent}/${loopTotal}! Bắt đầu vòng ${nextLoop}/${loopTotal}...`, 'success');
+                                        const loopMsg = viewTargetViews > 0
+                                            ? ` Hoàn thành vòng ${loopCurrent}! [Đạt ${currentSuccess}/${viewTargetViews} lượt]. Bắt đầu vòng ${nextLoop}...`
+                                            : ` Hoàn thành vòng ${loopCurrent}/${loopTotal}! Bắt đầu vòng ${nextLoop}/${loopTotal}...`;
+                                        updateStatus(loopMsg, 'success');
                                         await sleep(1500);
                                         window.location.href = list[0].url;
                                         return;
@@ -4050,10 +4113,10 @@
                 const nextIdx = index + 1;
                 localStorage.setItem(KEY_INDEX, nextIdx.toString());
 
-                const isGoalReached = targetLimit > 0 && currentSuccess >= targetLimit;
+                const isGoalReached = (targetLimit > 0 && currentSuccess >= targetLimit) ||
+                    (isViewMode && viewTargetViews > 0 && currentSuccess >= viewTargetViews);
 
                 if (isGoalReached || nextIdx >= list.length) {
-                    const isViewMode = localStorage.getItem(KEY_VIEW_COUNT_MODE) === 'true';
                     if (isViewMode && !isGoalReached) {
                         const loopTotal = parseInt(localStorage.getItem(KEY_VIEW_LOOP_TOTAL) || '1', 10);
                         const loopCurrent = parseInt(localStorage.getItem(KEY_VIEW_LOOP_CURRENT) || '1', 10);
@@ -4061,7 +4124,10 @@
                             const nextLoop = loopCurrent + 1;
                             localStorage.setItem(KEY_VIEW_LOOP_CURRENT, nextLoop.toString());
                             localStorage.setItem(KEY_INDEX, '0');
-                            updateStatus(` Hoàn thành vòng ${loopCurrent}/${loopTotal}! Bắt đầu vòng ${nextLoop}/${loopTotal}...`, 'success');
+                            const loopMsg = viewTargetViews > 0
+                                ? ` Hoàn thành vòng ${loopCurrent}! [Đạt ${currentSuccess}/${viewTargetViews} lượt]. Bắt đầu vòng ${nextLoop}...`
+                                : ` Hoàn thành vòng ${loopCurrent}/${loopTotal}! Bắt đầu vòng ${nextLoop}/${loopTotal}...`;
+                            updateStatus(loopMsg, 'success');
                             await sleep(1500);
                             window.location.href = list[0].url;
                             return;
@@ -4071,19 +4137,22 @@
                     return;
                 }
 
-                const isViewMode = localStorage.getItem(KEY_VIEW_COUNT_MODE) === 'true';
                 const loopTotal = parseInt(localStorage.getItem(KEY_VIEW_LOOP_TOTAL) || '1', 10);
                 const loopCurrent = parseInt(localStorage.getItem(KEY_VIEW_LOOP_CURRENT) || '1', 10);
-                const loopPrefix = (isViewMode && loopTotal > 1) ? `[Vòng ${loopCurrent}/${loopTotal}] ` : '';
+                const loopPrefix = isViewMode
+                    ? (viewTargetViews > 0 ? `[Vòng ${loopCurrent}] ` : (loopTotal > 1 ? `[Vòng ${loopCurrent}/${loopTotal}] ` : ''))
+                    : '';
 
-                const totalForProg = targetLimit > 0 ? targetLimit : list.length;
-                const currentForProg = targetLimit > 0 ? currentSuccess : nextIdx;
-                updateProgress(ui, currentForProg, totalForProg, loopPrefix ? `${loopPrefix}${currentForProg}/${totalForProg} cuốn` : '');
+                const totalForProg = (isViewMode && viewTargetViews > 0) ? viewTargetViews : (targetLimit > 0 ? targetLimit : list.length);
+                const currentForProg = (isViewMode && viewTargetViews > 0) ? currentSuccess : (targetLimit > 0 ? currentSuccess : nextIdx);
+                const progUnit = (isViewMode && viewTargetViews > 0) ? 'lượt' : 'cuốn';
+                updateProgress(ui, currentForProg, totalForProg, loopPrefix ? `${loopPrefix}${currentForProg}/${totalForProg} ${progUnit}` : '');
 
                 const speedStr = !skipped ? ' (mất ' + fmtTime(elapsedMs / 1000) + ')' : '';
+                const goalTag = viewTargetViews > 0 ? ' [' + currentSuccess + '/' + viewTargetViews + ' lượt]' : (targetLimit > 0 ? ' [' + currentSuccess + '/' + targetLimit + ']' : '');
                 updateStatus(skipped
-                    ? ` ${loopPrefix}Đã bỏ qua cuốn #${index + 1}${targetLimit > 0 ? ' [' + currentSuccess + '/' + targetLimit + ']' : ''} — chuyển sang cuốn tiếp theo`
-                    : ` ${loopPrefix}Xong ${targetLimit > 0 ? '[' + currentSuccess + '/' + targetLimit + ' cuốn]' : 'cuốn #' + (index + 1)}${speedStr} — chuyển sang cuốn tiếp theo`, 'success');
+                    ? ` ${loopPrefix}Đã bỏ qua cuốn #${index + 1}${goalTag} — chuyển sang cuốn tiếp theo`
+                    : ` ${loopPrefix}Xong ${goalTag ? goalTag : 'cuốn #' + (index + 1)}${speedStr} — chuyển sang cuốn tiếp theo`, 'success');
 
                 if (!skipped) {
                     await showCountdown(isPerfMode() ? 0 : 3);
@@ -4230,15 +4299,19 @@
                     updateStatus(' Mục tiêu: Đọc đủ ' + n + ' cuốn sách (' + dir.label + ')', 'info');
                     await sleep(800);
                 } else if (mode === '4') {
-                    const loops = await showLoopInputDialog(raw.length);
-                    if (!loops) { updateStatus('Đã huỷ', 'warn'); setNormalMode(ui); return; }
+                    const loopConfig = await showLoopInputDialog(raw.length);
+                    if (!loopConfig) { updateStatus('Đã huỷ', 'warn'); setNormalMode(ui); return; }
+                    const loops = loopConfig.loops;
+                    const targetViews = loopConfig.targetViews || 0;
                     localStorage.setItem(KEY_VIEW_LOOP_TOTAL, loops.toString());
                     localStorage.setItem(KEY_VIEW_LOOP_CURRENT, '1');
+                    localStorage.setItem(KEY_VIEW_TARGET_VIEWS, targetViews.toString());
                     const dir = await showDirectionDialog(raw);
                     if (!dir) { updateStatus('Đã huỷ', 'warn'); setNormalMode(ui); return; }
                     bookList = dir.books;
                     localStorage.setItem(KEY_TARGET_COUNT, '0');
-                    updateStatus(' Cào lượt đọc: ' + bookList.length + ' cuốn · ' + loops + ' vòng lặp (' + dir.label + ')', 'info');
+                    const targetText = targetViews > 0 ? ' · Mục tiêu: ' + targetViews + ' lượt' : ' · ' + loops + ' vòng lặp';
+                    updateStatus(' Cào lượt đọc: ' + bookList.length + ' cuốn' + targetText + ' (' + dir.label + ')', 'info');
                     await sleep(800);
                 } else {
                     updateStatus(' Mở bảng chọn sách...', 'info');
@@ -4265,7 +4338,8 @@
                 localStorage.setItem(KEY_ACTIVE, 'true');
 
                 const targetVal = parseInt(localStorage.getItem(KEY_TARGET_COUNT) || '0', 10);
-                const countEst = targetVal > 0 ? targetVal : bookList.length;
+                const viewTargetVal = mode === '4' ? parseInt(localStorage.getItem(KEY_VIEW_TARGET_VIEWS) || '0', 10) : 0;
+                const countEst = viewTargetVal > 0 ? viewTargetVal : (targetVal > 0 ? targetVal : bookList.length);
                 const etaSec = countEst * getAvgSecPerBook();
                 updateProgress(ui, 0, countEst, ' Sẵn sàng ' + countEst + ' cuốn — dự kiến ' + fmtTime(etaSec));
                 if (mode === '4') {
@@ -4292,7 +4366,8 @@
                 if (isReading) {
                     const readingBooks = JSON.parse(localStorage.getItem(KEY_LIST) || '[]');
                     const targetCount = parseInt(localStorage.getItem(KEY_TARGET_COUNT) || '0', 10);
-                    stopProgressTotal = targetCount > 0 ? targetCount : readingBooks.length;
+                    const viewTargetVal = parseInt(localStorage.getItem(KEY_VIEW_TARGET_VIEWS) || '0', 10);
+                    stopProgressTotal = viewTargetVal > 0 ? viewTargetVal : (targetCount > 0 ? targetCount : readingBooks.length);
                 } else if (isScanning) {
                     stopProgressTotal = JSON.parse(localStorage.getItem(KEY_SCAN_LIST) || '[]').length;
                 }
@@ -4308,6 +4383,7 @@
                 localStorage.removeItem(KEY_VIEW_COUNT_MODE);
                 localStorage.removeItem(KEY_VIEW_LOOP_TOTAL);
                 localStorage.removeItem(KEY_VIEW_LOOP_CURRENT);
+                localStorage.removeItem(KEY_VIEW_TARGET_VIEWS);
                 const overlay = document.getElementById('tr-countdown-overlay');
                 if (overlay) overlay.remove();
                 updateStatus(' Đã dừng đọc sách', 'warn');
